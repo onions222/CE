@@ -1,0 +1,196 @@
+clear;
+imgPath = 'soap-bubbles-nature.jpg';
+I = im2double(imread(imgPath));
+
+deltaH = +10;  % Hue 偏移（度），正负都可以
+% 可选：只对某些 Hue 范围生效（单位度，0..360）
+opts.useHueRange = true;
+opts.hueMin = 60;   % 例如只动绿色/青色
+opts.hueMax = 180;
+opts.epsT   = 1e-6; % 防止跨扇区边界
+
+[J, dbg] = hue_shift_v_s_strict_ycocg(I, deltaH, opts);
+
+figure('Name','HSV-strict Hue shift via Co/Cg (6 sectors, no cross)');
+subplot(1,2,1); imshow(I); title('Original');
+subplot(1,2,2); imshow(J); title(sprintf('Hue %+g deg (strict V,S; no cross)', deltaH));
+
+imwrite(J, 'out_hue_strict_vs.png');
+fprintf('Saved: out_hue_strict_vs.png\n');
+% 误差报告（理论上 ~1e-15 量级，若有 clamp 到 [0,1] 则可能略大）
+fprintf('Max abs err V: %.3g\n', dbg.maxErrV);
+fprintf('Max abs err S: %.3g\n', dbg.maxErrS);
+
+
+%% TOOL FUNCTIONS
+function [Iout, dbg] = hue_shift_v_s_strict_ycocg(Iin, deltaH, opts)
+% Iin: RGB double in [0,1]
+% deltaH: hue offset in degrees
+% opts.useHueRange: true/false
+% opts.hueMin, opts.hueMax: range in [0,360], only used if useHueRange=true
+% opts.epsT: small epsilon for t clamp (avoid crossing)
+
+% arguments
+%     Iin (:,: ,3) double
+%     deltaH (1,1) double
+%     opts.useHueRange struct = struct('useHueRange', false, 'hueMin', 0, 'hueMax', 360, 'epsT', 1e-6)
+% end
+
+% --- 1) RGB -> YCoCg (提供接口，虽然严格约束在 HSV 空间实现) ---
+[Y, Co, Cg] = rgb2ycocg(Iin); %#ok<ASGLU>
+
+% --- 2) 从输入 RGB 得到每像素 V, Delta, S，并做扇区分类 ---
+R = Iin(:,:,1); G = Iin(:,:,2); B = Iin(:,:,3);
+
+V = max(max(R,G),B);
+m = min(min(R,G),B);
+Delta = V - m;
+
+% S = Delta / V (V==0 时定义为 0)
+% 饱和度计算
+S = zeros(size(V));
+nzV = (V > 0);
+S(nzV) = Delta(nzV) ./ V(nzV);
+
+active = (Delta > 0); % Delta==0 灰度：Hue 无意义，不动
+
+% --- 扇区判定（与 HSV 标准一致，tie 用 >= 保证稳定） ---
+isRmax = active & (R >= G) & (R >= B);
+isGmax = active & (G >  R) & (G >= B); % 用 > 避免 Rmax/Gmax 双真
+isBmax = active & ~(isRmax | isGmax);
+
+% s=0 or 5 when R is max
+s0 = isRmax & (G >= B);   % 0..60
+s5 = isRmax & ~(G >= B);  % 300..360
+
+% s=1 or 2 when G is max
+s1 = isGmax & (B <= R);   % 60..120 (min=B)
+s2 = isGmax & ~(B <= R);  % 120..180 (min=R)
+
+% s=3 or 4 when B is max
+s3 = isBmax & (R <= G);   % 180..240 (min=R)
+s4 = isBmax & ~(R <= G);  % 240..300 (min=G)
+
+% --- 3) 计算扇区内参数 t（只用差分比值），并可选按 Hue 范围启用 ---
+t = zeros(size(V));
+
+% 这些 t 定义保证 t∈[0,1]（在对应扇区内部）
+% s0: V=R, min=B => t=(G-B)/Delta
+t(s0) = (G(s0) - B(s0)) ./ Delta(s0);
+% s1: V=G, min=B => t=(V-R)/Delta = (G-R)/Delta
+t(s1) = (G(s1) - R(s1)) ./ Delta(s1);
+% s2: V=G, min=R => t=(B-R)/Delta
+t(s2) = (B(s2) - R(s2)) ./ Delta(s2);
+% s3: V=B, min=R => t=(V-G)/Delta = (B-G)/Delta
+t(s3) = (B(s3) - G(s3)) ./ Delta(s3);
+% s4: V=B, min=G => t=(R-G)/Delta
+t(s4) = (R(s4) - G(s4)) ./ Delta(s4);
+% s5: V=R, min=G => t=(V-B)/Delta = (R-B)/Delta
+t(s5) = (R(s5) - B(s5)) ./ Delta(s5);
+
+% 对数值误差做夹紧
+t = min(max(t, 0), 1);
+
+% 计算 Hue（用于可选范围 mask；不使用 atan2）
+Hue = zeros(size(V));
+Hue(s0) = 60*(0 + t(s0));
+Hue(s1) = 60*(1 + t(s1));
+Hue(s2) = 60*(2 + t(s2));
+Hue(s3) = 60*(3 + t(s3));
+Hue(s4) = 60*(4 + t(s4));
+Hue(s5) = 60*(5 + t(s5));
+Hue = mod(Hue, 360);
+
+if opts.useHueRange
+    if opts.hueMin <= opts.hueMax
+        enable = (Hue >= opts.hueMin) & (Hue <= opts.hueMax);
+    else
+        % wrap-around range, e.g., [300, 30]
+        enable = (Hue >= opts.hueMin) | (Hue <= opts.hueMax);
+    end
+    active = active & enable;
+    % 重新更新扇区 mask（只在 active 上动）
+    s0 = s0 & active; s1 = s1 & active; s2 = s2 & active;
+    s3 = s3 & active; s4 = s4 & active; s5 = s5 & active;
+end
+
+% --- 4) Hue 调整：只改 t，且不跨扇区（t' clamp 到 [0,1)） ---
+dt = deltaH / 60;
+t2 = t;
+t2(active) = t(active) + dt;
+t2(active) = min(max(t2(active), 0), 1 - opts.epsT);
+
+% --- 5) 严格保持 V、S：等价于保持 V 与 Delta 不变 ---
+% 在每扇区用 (V, Delta, t2) 直接构造输出 RGB'（严格保证 V'=V, Delta'=Delta）
+R2 = R; G2 = G; B2 = B;
+
+% 以下求解可通过求解 t 的公式反推得到
+% s0: V=R, min=B
+R2(s0) = V(s0);
+B2(s0) = V(s0) - Delta(s0);
+G2(s0) = B2(s0) + Delta(s0).*t2(s0);
+
+% s1: V=G, min=B
+G2(s1) = V(s1);
+B2(s1) = V(s1) - Delta(s1);
+R2(s1) = V(s1) - Delta(s1).*t2(s1);
+
+% s2: V=G, min=R
+G2(s2) = V(s2);
+R2(s2) = V(s2) - Delta(s2);
+B2(s2) = R2(s2) + Delta(s2).*t2(s2);
+
+% s3: V=B, min=R
+B2(s3) = V(s3);
+R2(s3) = V(s3) - Delta(s3);
+G2(s3) = V(s3) - Delta(s3).*t2(s3);
+
+% s4: V=B, min=G
+B2(s4) = V(s4);
+G2(s4) = V(s4) - Delta(s4);
+R2(s4) = G2(s4) + Delta(s4).*t2(s4);
+
+% s5: V=R, min=G
+R2(s5) = V(s5);
+G2(s5) = V(s5) - Delta(s5);
+B2(s5) = V(s5) - Delta(s5).*t2(s5);
+
+Iout = cat(3, R2, G2, B2);
+
+% --- 6) 输出接口：RGB' -> YCoCg' -> RGB'（提供你要求的双向能力） ---
+% 你如果后续要在 YCoCg 域继续处理，就用 [Y2,Co2,Cg2]
+[Y2, Co2, Cg2] = rgb2ycocg(Iout); %#ok<NASGU>
+Iout = ycocg2rgb(Y2, Co2, Cg2);
+
+% clamp 到 [0,1]（注意：若原始 V 就在 [0,1]，理论上不会越界；但数值误差可做保护）
+Iout = min(max(Iout,0),1);
+
+% --- 7) 验证 V、S 不变（用输出定义计算） ---
+Rf = Iout(:,:,1); Gf = Iout(:,:,2); Bf = Iout(:,:,3);
+Vf = max(max(Rf,Gf),Bf);
+mf = min(min(Rf,Gf),Bf);
+Df = Vf - mf;
+
+Sf = zeros(size(Vf));
+nzVf = (Vf > 0);
+Sf(nzVf) = Df(nzVf) ./ Vf(nzVf);
+
+dbg.maxErrV = max(abs(Vf(:) - V(:)));
+dbg.maxErrS = max(abs(Sf(:) - S(:)));
+end
+
+% ======= YCoCg forward =======
+function [Y, Co, Cg] = rgb2ycocg(I)
+R = I(:,:,1); G = I(:,:,2); B = I(:,:,3);
+Y  = 0.25*R + 0.50*G + 0.25*B;
+Co = 0.50*(R - B);
+Cg = -0.25*R + 0.50*G - 0.25*B;
+end
+
+% ======= YCoCg inverse (verified) =======
+function I = ycocg2rgb(Y, Co, Cg)
+R = Y + Co - Cg;
+G = Y + Cg;
+B = Y - Co - Cg;
+I = cat(3, R, G, B);
+end
