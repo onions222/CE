@@ -58,20 +58,22 @@ function [Y2, Co2, Cg2] = wpa_apply_ycocg_lms_nobanding(Y, Co, Cg, wa_sel, wa_en
 
     % ---------------- Continuous bin position ----------------
     % u = Y * 12 / 256 in [0,12)
-    u = double(Y) * 12 / 256;
-    b = floor(u);       % nominal bin 0..11
-    a = u - b;          % frac 0..1
+    [b_clamp, a_clamp] = map_luma_to_bin_alpha(double(Y), p);
 
-    % Clamp:
-    % - For b>=11: force bin=11 and a=0 (no blending beyond last bin)
-    b_clamp = b;
-    a_clamp = a;
+    mask_last  = (b_clamp == 11);   % last bin: no blending
+    mask_blend = (b_clamp <= 10);   % bins 0..10 can blend with b+1 (if alpha>0)
 
-    mask_last = (b_clamp >= 11);
-    b_clamp(mask_last) = 11;
-    a_clamp(mask_last) = 0;
 
-    mask_blend = (b_clamp <= 10); % bins 0..10 blend with b+1
+    % % Clamp:
+    % % - For b>=11: force bin=11 and a=0 (no blending beyond last bin)
+    % b_clamp = b;
+    % a_clamp = a;
+    % 
+    % mask_last = (b_clamp >= 11);
+    % b_clamp(mask_last) = 11;
+    % a_clamp(mask_last) = 0;
+    % 
+    % mask_blend = (b_clamp <= 10); % bins 0..10 blend with b+1
 
     % ==========================================================
     % Case 1: bins 0..10 (blend between bb and bb+1)
@@ -287,4 +289,133 @@ function [R,G,B] = ycocg2rgb_sep(Y, Co, Cg)
     R = Y + Co - Cg;
     G = Y + Cg;
     B = Y - Co - Cg;
+end
+
+function [b_clamp, a_clamp] = map_luma_to_bin_alpha(Y, p)
+% Map luma Y (HxW double) to:
+%   b_clamp: integer bin index in [0..11]   (0-based)
+%   a_clamp: alpha in [0..1] for interpolation between bin b and b+1
+%
+% Modes:
+%   'uniform_linear' : u=12Y/256, b=floor(u), alpha=u-b (blend adjacent bins)
+%   'doc_step'       : use doc nodes as thresholds, choose ONE bin (alpha=0)
+%   'doc_linear'     : use doc nodes, find segment and alpha=(Y-Yk)/(Yk1-Yk)
+%
+% doc nodes default:
+%   [15,31,47,63,95,127,159,191,223,239,247,255]
+
+    if ~isfield(p, 'bin_mode')
+        p.bin_mode = 'uniform_linear';
+    end
+
+    mode = lower(string(p.bin_mode));
+
+    if ~isfield(p,'docY')
+        p.docY = [15,31,47,63,95,127,159,191,223,239,247,255];
+    end
+    Ynode = double(p.docY(:).'); % 1x12
+    assert(numel(Ynode)==12, 'p.docY must have 12 nodes.');
+    assert(all(diff(Ynode) > 0), 'p.docY must be strictly increasing.');
+
+    switch mode
+        % =============================================================
+        % Mode 1: uniform 12-bin + linear interpolation
+        % =============================================================
+        case "uniform_linear"
+            u = Y * 12 / 256;        % continuous bin coordinate in [0,12)
+            b = floor(u);            % nominal 0..11
+            a = u - b;               % alpha 0..1
+
+            b_clamp = b;
+            a_clamp = a;
+
+            % clamp to [0..11], last bin no blending
+            mlow  = (b_clamp < 0);
+            b_clamp(mlow) = 0;  a_clamp(mlow) = 0;
+
+            mlast = (b_clamp >= 11);
+            b_clamp(mlast) = 11; a_clamp(mlast) = 0;
+
+            a_clamp = min(max(a_clamp,0),1);
+
+        % =============================================================
+        % Mode 2: doc nodes + step (strict doc, no interpolation)
+        %
+        % Interpretation (very common in ISP docs):
+        %   pick the first node index j such that Y <= Ynode(j)
+        %   use bin = j-1 (0-based), alpha=0.
+        %
+        % So boundaries are: (-inf..15]->bin0, (15..31]->bin1, ..., (247..255]->bin11
+        % =============================================================
+        case "doc_step"
+            b_clamp = zeros(size(Y));
+            a_clamp = zeros(size(Y));  % no interpolation
+
+            % For each node j=1..12, assign pixels with Y <= Ynode(j) and not assigned yet.
+            assigned = false(size(Y));
+
+            for j = 1:12
+                mj = (~assigned) & (Y <= Ynode(j));
+                if any(mj(:))
+                    b_clamp(mj) = j-1; % 0-based
+                    assigned(mj) = true;
+                end
+            end
+
+            % Any remaining (Y > last node) => last bin
+            mrem = ~assigned;
+            if any(mrem(:))
+                b_clamp(mrem) = 11;
+            end
+
+        % =============================================================
+        % Mode 3: doc nodes + linear interpolation (smooth)
+        %
+        % Segment rule:
+        %   if Y <= Y1  -> bin0, alpha=0
+        %   if Y >= Y12 -> bin11, alpha=0
+        %   else find k in [1..11] s.t. Ynode(k) < = Y < Ynode(k+1)
+        %        bin = k-1, alpha = (Y - Yk)/(Yk1 - Yk)
+        % =============================================================
+        case "doc_linear"
+            b_clamp = zeros(size(Y));
+            a_clamp = zeros(size(Y));
+
+            mlow = (Y <= Ynode(1));
+            mhi  = (Y >= Ynode(12));
+
+            b_clamp(mlow) = 0;  a_clamp(mlow) = 0;
+            b_clamp(mhi)  = 11; a_clamp(mhi)  = 0;
+
+            mmid = ~(mlow | mhi);
+            if any(mmid(:))
+                Ymid = Y(mmid);
+
+                btmp = zeros(size(Ymid));
+                atmp = zeros(size(Ymid));
+
+                % find segment
+                for k = 1:11
+                    Yk  = Ynode(k);
+                    Yk1 = Ynode(k+1);
+                    mk = (Ymid >= Yk) & (Ymid < Yk1);
+                    if any(mk)
+                        btmp(mk) = k-1; % 0-based bin
+                        atmp(mk) = (Ymid(mk) - Yk) / (Yk1 - Yk); % [0,1)
+                    end
+                end
+
+                b_clamp(mmid) = btmp;
+                a_clamp(mmid) = atmp;
+            end
+
+            a_clamp = min(max(a_clamp,0),1);
+
+        otherwise
+            error('Unknown p.bin_mode: %s (use uniform_linear / doc_step / doc_linear)', p.bin_mode);
+    end
+
+    % Ensure integer bins and valid range
+    b_clamp = floor(b_clamp);
+    b_clamp = min(max(b_clamp,0),11);
 end

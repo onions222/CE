@@ -26,12 +26,14 @@ p.Y_bright2 = 248;
 p.bright_minfac = 0.25;
 p.keepY = 0;
 
-% bin_mode instruct:
-% 'uniform_linear': 均匀 bin + 插值
-% 'doc_linear':     文档节点 + 插值（更平滑，通常断层更小）
-% 'doc_step':       文档节点 + 硬切换（严格对齐文档，无亮度插值）
+% bin_mode instruct
 
+% 方式1：均匀 bin + 插值
+p.bin_mode = 'uniform_linear';
+% 方式2：文档节点 + 硬切换（严格对齐文档，无亮度插值）
 p.bin_mode = 'doc_step';
+% 方式3：文档节点 + 插值（更平滑，通常断层更小）
+p.bin_mode = 'doc_linear';
 
 % 文档节点（可不写，默认就是这组）
 p.docY = [15,31,47,63,95,127,159,191,223,239,247,255];
