@@ -1,7 +1,11 @@
 I = imread('grass.jpg'); % uint8 RGB, [0..255]
 
 % 1) RGB -> YCoCg
-[Y,Co,Cg] = rgb2ycocg(I);
+I  = double(Iu8) / 255;
+% sRGB -> linear RGB
+Ilin = srgb2lin(I);
+Ilin255 = Ilin * 255;
+[Y,Co,Cg] = rgb2ycocg(Ilin255);
 
 % 2) Build 12-bin Kelvin tables (offline step)
 opts = struct();
@@ -47,9 +51,29 @@ wa_en = 1;
 
 I2 = ycocg2rgb(Y2,Co2,Cg2);
 I2 = uint8(min(max(I2,0),255));
-
-figure;
+I2lin = min(max(I2,0),255) / 255;
+I2srgb = lin2srgb(I2lin);
+I2u8 = uint8(min(max(round(I2srgb*255),0),255));
+figure();
+subplot(122);
+imshow(I2u8);title('Proceed');
 subplot(121);
 imshow(I);title('Original');
-subplot(122);
-imshow(I2);title('Processed');
+
+%% Helpers
+
+function lin = srgb2lin(s)
+    a = 0.055;
+    lin = zeros(size(s));
+    m = (s <= 0.04045);
+    lin(m)  = s(m) / 12.92;
+    lin(~m) = ((s(~m) + a) / (1+a)).^2.4;
+end
+
+function s = lin2srgb(lin)
+    a = 0.055;
+    s = zeros(size(lin));
+    m = (lin <= 0.0031308);
+    s(m)  = 12.92 * lin(m);
+    s(~m) = (1+a) * (lin(~m).^(1/2.4)) - a;
+end
