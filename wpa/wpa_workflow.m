@@ -1,11 +1,12 @@
-I = imread('grass.jpg'); % uint8 RGB, [0..255]
+clear;
+Im = imread('sky.jpg'); % uint8 RGB, [0..255]
 
-% 1) RGB -> YCoCg
-I  = double(Iu8) / 255;
-% sRGB -> linear RGB
-Ilin = srgb2lin(I);
-Ilin255 = Ilin * 255;
-[Y,Co,Cg] = rgb2ycocg(Ilin255);
+% % 1) RGB -> YCoCg
+% I  = double(Im) / 255;
+% % sRGB -> linear RGB
+% Ilin = srgb2lin(I);
+% Ilin255 = Ilin * 255;
+[Y,Co,Cg] = rgb2ycocg(Im);
 
 % 2) Build 12-bin Kelvin tables (offline step)
 opts = struct();
@@ -35,7 +36,7 @@ p.keepY = 0;
 % 'doc_linear':     文档节点 + 插值（更平滑，通常断层更小）
 % 'doc_step':       文档节点 + 硬切换（严格对齐文档，无亮度插值）
 
-p.bin_mode = 'doc_step';
+p.bin_mode = 'uniform_linear';
 
 % 文档节点（可不写，默认就是这组）
 p.docY = [15,31,47,63,95,127,159,191,223,239,247,255];
@@ -45,20 +46,20 @@ p.docY = [15,31,47,63,95,127,159,191,223,239,247,255];
 p.s_quant_en = 0;     % 如果要模拟硬件步进，改为 1
 p.s_quant_Q  = 64;
 
-wa_sel = 100; 
+wa_sel = 30; 
 wa_en = 1;
 [Y2,Co2,Cg2] = wpa_apply_ycocg_lms_nobanding(Y,Co,Cg, wa_sel, wa_en, tbl, p);
 
 I2 = ycocg2rgb(Y2,Co2,Cg2);
-I2 = uint8(min(max(I2,0),255));
-I2lin = min(max(I2,0),255) / 255;
-I2srgb = lin2srgb(I2lin);
-I2u8 = uint8(min(max(round(I2srgb*255),0),255));
+% I2 = uint8(min(max(I2,0),255));
+% I2lin = min(max(I2,0),255) / 255;
+% I2srgb = lin2srgb(double(I2lin));
+% I2u8 = uint8(min(max(round(I2srgb*255),0),255));
 figure();
 subplot(122);
-imshow(I2u8);title('Proceed');
+imshow(uint8(I2));title('Proceed');
 subplot(121);
-imshow(I);title('Original');
+imshow(uint8(Im));title('Original');
 
 %% Helpers
 
