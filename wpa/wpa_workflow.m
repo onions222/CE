@@ -1,5 +1,5 @@
 clear;
-Im = imread('sky.jpg'); % uint8 RGB, [0..255]
+Im = imread('grass.jpg'); % uint8 RGB, [0..255]
 
 % % 1) RGB -> YCoCg
 % I  = double(Im) / 255;
@@ -36,7 +36,7 @@ p.keepY = 0;
 % 'doc_linear':     文档节点 + 插值（更平滑，通常断层更小）
 % 'doc_step':       文档节点 + 硬切换（严格对齐文档，无亮度插值）
 
-p.bin_mode = 'uniform_linear';
+p.bin_mode = 'doc_step';
 
 % 文档节点（可不写，默认就是这组）
 p.docY = [15,31,47,63,95,127,159,191,223,239,247,255];
