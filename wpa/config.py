@@ -24,8 +24,8 @@ LUMA_NODES_12: list[int] = [15, 31, 47, 63, 95, 127, 159, 191, 223, 239, 247, 25
 # ---------------------------------------------------------------------------
 # Global warm / cool gain endpoints (per-channel RGB)
 # ---------------------------------------------------------------------------
-WARM_GAIN_GLOBAL: tuple[float, float, float] = (1.25, 1.00, 0.75)
-COOL_GAIN_GLOBAL: tuple[float, float, float] = (0.75, 1.00, 1.25)
+WARM_GAIN_GLOBAL: tuple[float, float, float] = (1.40, 1.00, 0.60)
+COOL_GAIN_GLOBAL: tuple[float, float, float] = (0.60, 1.00, 1.40)
 
 
 def _atten_curve(y: float) -> float:
@@ -130,7 +130,7 @@ class WPAConfig:
     luma_domain: str = "gamma"      # "gamma" | "linear"
 
     # --- saturation protection -------------------------------------------
-    sat_en: bool = True
+    sat_en: bool = False
     sat_s0: float = 100.0           # s <= s0 → w = 1  (grey → full effect)
     sat_s1: float = 500.0           # s >= s1 → w = 0  (saturated → no effect)
     sat_weight_domain: str = "gamma"  # "gamma" | "linear"
