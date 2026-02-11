@@ -15,6 +15,7 @@ from functools import lru_cache
 import numpy as np
 
 Array = np.ndarray
+_HIGHLIGHT_ROLLOFF = np.float32(0.85)
 
 
 def rgb_to_ycocg(rgb255: Array) -> tuple[Array, Array, Array]:
@@ -284,7 +285,8 @@ def apply_kelvin_ycocg_linear_rgb255(
 
         # High-light safety: in very bright regions, use one-sided adjustments only.
         # This avoids hard falloff near 255 and prevents highlight tint spikes.
-        hm = yk[0, :] >= high_start
+        y8k = y_clamped[m]
+        hm = y8k >= high_start
         if np.any(hm):
             rgb_delta = ycocg_to_rgb(delta[0, :], delta[1, :], delta[2, :])  # (M,3)
             if side == "warm":
@@ -312,4 +314,12 @@ def apply_kelvin_ycocg_linear_rgb255(
         out[:, m] = yk + delta * s[None, :]
 
     rgb_out = ycocg_to_rgb(out[0, :], out[1, :], out[2, :]).reshape(rgb.shape)
+    high_roll_start = float(nd[-5])  # start smooth rollback from nodes >= 191
+    high_mask = y_clamped >= high_roll_start
+    if np.any(high_mask):
+        t_hi = np.clip((y_clamped[high_mask] - high_roll_start) / (255.0 - high_roll_start), 0.0, 1.0).astype(np.float32)
+        flat = rgb_out.reshape(-1, 3)
+        flat_hi = flat[high_mask]
+        flat[high_mask] = flat_hi + (t_hi[:, None] * _HIGHLIGHT_ROLLOFF) * (rgb_max - flat_hi)
+        rgb_out = flat.reshape(rgb.shape)
     return np.clip(rgb_out, 0.0, float(rgb_max)).astype(np.float32)

@@ -64,8 +64,8 @@ class WPAConfig:
     sat_s1: float = 1.80
 
     # Global endpoints used only for default per-bin table generation.
-    warm_gain_global: tuple[float, float, float] = (1.00, 0.98, 0.82)
-    cool_gain_global: tuple[float, float, float] = (0.82, 0.98, 1.00)
+    warm_gain_global: tuple[float, float, float] = (1.60, 1.00, 0.4)
+    cool_gain_global: tuple[float, float, float] = (0.40, 1.00, 1.60)
 
     # Side-specific strength for gain attenuation. 1.0 keeps default table behavior.
     warm_strength: float = 1.0
@@ -88,6 +88,8 @@ class WPAConfig:
     # Extra global scaling for Kelvin/YCoCg transform strength.
     # Keeps the Kelvin-based model from being overly aggressive at alpha=1.
     kelvin_strength: float = 0.20
+    kelvin_warm_side_scale: float = 1.0
+    kelvin_cool_side_scale: float = 1.0
 
     warm_gains_bins: ArrayLikeF32 | None = None
     cool_gains_bins: ArrayLikeF32 | None = None
@@ -111,6 +113,10 @@ class WPAConfig:
             raise ValueError("kelvin_bin_mid must be in [1,12].")
         if self.kelvin_strength < 0.0:
             raise ValueError("kelvin_strength must be >= 0.")
+        if self.kelvin_warm_side_scale < 0.0:
+            raise ValueError("kelvin_warm_side_scale must be >= 0.")
+        if self.kelvin_cool_side_scale < 0.0:
+            raise ValueError("kelvin_cool_side_scale must be >= 0.")
 
         nodes = np.asarray(self.luma_nodes_12, dtype=np.float32)
         if nodes.shape != (12,):

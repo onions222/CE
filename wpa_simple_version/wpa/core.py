@@ -16,6 +16,10 @@ except ImportError:
     from kelvin_ycocg import KelvinTableOptions, apply_kelvin_ycocg_linear_rgb255, build_tables_kelvin_12bin
     from weights import interpolate_bins, luma_proxy_y8, saturation_proxy, saturation_weight
 
+_HIGHLIGHT_SIDE_MIN_GAIN = np.float32(192.0 / 255.0)
+_HIGHLIGHT_ROLLOFF = np.float32(0.15)
+
+
 def _wa_sel_to_side_alpha(wa_sel: int) -> tuple[str, float]:
     """Map WA_SEL to DDIC-style side + interpolation alpha."""
     if wa_sel < 64:
@@ -44,25 +48,29 @@ def _apply_gain_safety_and_strength(
             high = out[high_mask]
             before = high.copy()
             high = np.minimum(high, 1.0)
-            high[:, 2] = np.maximum(high[:, 2], 0.75)
+            high[:, 2] = np.maximum(high[:, 2], _HIGHLIGHT_SIDE_MIN_GAIN)
             out[high_mask] = high
             touched = not np.allclose(before, high)
         elif side == "cool":
             high = out[high_mask]
             before = high.copy()
             high = np.minimum(high, 1.0)
-            high[:, 0] = np.maximum(high[:, 0], 0.75)
+            high[:, 0] = np.maximum(high[:, 0], _HIGHLIGHT_SIDE_MIN_GAIN)
             out[high_mask] = high
             touched = not np.allclose(before, high)
+
+        # Smooth high-light color offset near peak white to avoid visible top-bin jumps.
+        t = np.clip((y8[high_mask] - high_start) / (255.0 - high_start), 0.0, 1.0).astype(np.float32)
+        out[high_mask] = out[high_mask] + (t[:, None] * _HIGHLIGHT_ROLLOFF) * (1.0 - out[high_mask])
 
     if strength != 1.0:
         # Scale attenuation magnitude around identity: 1 - s*(1-gain).
         out = 1.0 - float(strength) * (1.0 - out)
         out = np.minimum(out, 1.0)
         if side == "warm":
-            out[..., 2] = np.maximum(out[..., 2], 0.75)
+            out[..., 2] = np.maximum(out[..., 2], _HIGHLIGHT_SIDE_MIN_GAIN)
         else:
-            out[..., 0] = np.maximum(out[..., 0], 0.75)
+            out[..., 0] = np.maximum(out[..., 0], _HIGHLIGHT_SIDE_MIN_GAIN)
 
     return out, touched
 
@@ -157,7 +165,9 @@ def wpa_process_rgb_uint8(img: np.ndarray, cfg: WPAConfig | None = None) -> np.n
             bin_mid=int(cfg.kelvin_bin_mid),
         )
         tbl = build_tables_kelvin_12bin(opts)
-        strength = float(cfg.warm_strength if side == "warm" else cfg.cool_strength)
+        side_strength = float(cfg.warm_strength if side == "warm" else cfg.cool_strength)
+        side_scale = float(cfg.kelvin_warm_side_scale if side == "warm" else cfg.kelvin_cool_side_scale)
+        strength = side_strength * side_scale
         rgb255 = (in_linear * 255.0).astype(np.float32)
         out255 = apply_kelvin_ycocg_linear_rgb255(
             rgb255,

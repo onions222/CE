@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from wpa.config import WPAConfig
 from wpa.core import wpa_process_rgb_uint8
@@ -48,3 +49,20 @@ def test_srgb_roundtrip_within_1_lsb() -> None:
     out_codes = np.rint(y * 255.0).astype(np.int32)
     err = np.abs(out_codes - codes.astype(np.int32))
     assert np.max(err) <= 1
+
+
+def test_kelvin_side_scale_validation_and_disable_path() -> None:
+    img = np.array([[[120, 130, 90], [180, 170, 140]]], dtype=np.uint8)
+
+    with pytest.raises(ValueError):
+        WPAConfig(kelvin_warm_side_scale=-0.1)
+    with pytest.raises(ValueError):
+        WPAConfig(kelvin_cool_side_scale=-0.1)
+
+    cfg_off_cool = WPAConfig(WA_EN=True, WA_SEL=110, wa_mode="kelvin_ycocg", kelvin_cool_side_scale=0.0)
+    out_off_cool = wpa_process_rgb_uint8(img, cfg_off_cool)
+    assert np.array_equal(out_off_cool, img)
+
+    cfg_off_warm = WPAConfig(WA_EN=True, WA_SEL=20, wa_mode="kelvin_ycocg", kelvin_warm_side_scale=0.0)
+    out_off_warm = wpa_process_rgb_uint8(img, cfg_off_warm)
+    assert np.array_equal(out_off_warm, img)
