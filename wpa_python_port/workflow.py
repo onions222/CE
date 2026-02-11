@@ -15,8 +15,8 @@ def load_rgb_u8(path: str) -> np.ndarray:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--in", dest="inp", default='sky.jpg', help="Input image path (sRGB)")
-    ap.add_argument("--wa_sel", type=int, default=20, help="0..127, 64 neutral")
+    ap.add_argument("--in", dest="inp", default='grass.jpg', help="Input image path (sRGB)")
+    ap.add_argument("--wa_sel", type=int, default=127, help="0..127, 64 neutral")
     ap.add_argument("--wa_en", type=int, default=1, help="0/1")
     ap.add_argument("--warm_end", type=float, default=4500.0)
     ap.add_argument("--cool_end", type=float, default=9000.0)
