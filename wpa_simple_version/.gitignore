@@ -1,0 +1,17 @@
+# Python cache / environment
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+
+# Dataset and large raw assets
+datasets/
+
+# Generated outputs / process artifacts
+out*.png
+*.log
+
+# OS/editor noise
+.DS_Store
