@@ -24,7 +24,7 @@ LUMA_NODES_12: list[int] = [15, 31, 47, 63, 95, 127, 159, 191, 223, 239, 247, 25
 # ---------------------------------------------------------------------------
 # Global warm / cool gain endpoints (per-channel RGB)
 # ---------------------------------------------------------------------------
-WARM_GAIN_GLOBAL: tuple[float, float, float] = (1.40, 1.00, 0.60)
+WARM_GAIN_GLOBAL: tuple[float, float, float] = (1.60, 1.00, 0.40)
 COOL_GAIN_GLOBAL: tuple[float, float, float] = (0.60, 1.00, 1.40)
 
 
