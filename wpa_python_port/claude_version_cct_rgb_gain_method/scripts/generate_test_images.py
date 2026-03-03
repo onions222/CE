@@ -11,6 +11,11 @@ Covers:
   6. Skin tone patches (common Fitzpatrick scale approximations)
   7. Smooth gradient (large-area for banding detection)
   8. Random noise image (stress test)
+  9. Grey step chart
+ 10. Luma-node aligned chart
+ 11. UI text contrast chart
+ 12. Specular clip chart
+ 13. Mixed-illumination chart
 
 Usage:
     python scripts/generate_test_images.py [--output-dir tests/images]
@@ -202,12 +207,73 @@ def gen_luma_node_chart(patch_size: int = 64) -> np.ndarray:
     """Grey patches at each of the 12 luma nodes used by the algorithm.
     Useful for verifying gain table lookup at exact node boundaries.
     """
-    from wpa.config import LUMA_NODES_12
-    nodes = LUMA_NODES_12
+    nodes = [15, 31, 47, 63, 95, 127, 159, 191, 223, 239, 247, 255]
     img = np.zeros((patch_size, len(nodes) * patch_size, 3), dtype=np.uint8)
     for i, v in enumerate(nodes):
         img[:, i*patch_size:(i+1)*patch_size] = v
     return img
+
+
+# ── 11. UI text contrast chart ──────────────────────────────────────────
+
+def gen_ui_text_contrast(h: int = 256, w: int = 512) -> np.ndarray:
+    """High-contrast UI-like chart with sharp edges and neutral text blocks."""
+    img = np.full((h, w, 3), 245, dtype=np.uint8)
+    # Header band
+    img[0:48, :, :] = 32
+    # Two body cards
+    img[64:164, 24:244, :] = 230
+    img[64:164, 268:488, :] = 230
+    # Dark text bars
+    for y in [78, 92, 106, 120, 134]:
+        img[y:y + 4, 36:232, :] = 25
+        img[y:y + 4, 280:476, :] = 25
+    # Accent icon colors
+    img[190:228, 36:72, :] = [220, 50, 50]
+    img[190:228, 92:128, :] = [50, 160, 240]
+    img[190:228, 148:184, :] = [70, 180, 70]
+    return img
+
+
+# ── 12. Specular clip chart ─────────────────────────────────────────────
+
+def gen_specular_clip_chart(h: int = 256, w: int = 512) -> np.ndarray:
+    """Dark background with specular-like highlights for clipping checks."""
+    yy, xx = np.mgrid[0:h, 0:w]
+    base = np.full((h, w, 3), [14, 16, 20], dtype=np.float32)
+
+    # Three gaussian highlight blobs
+    centers = [(128, 128), (180, 280), (90, 410)]
+    colors = np.array([[255, 240, 220], [220, 235, 255], [255, 255, 255]], dtype=np.float32)
+    sigmas = [28.0, 22.0, 18.0]
+    for (cy, cx), col, s in zip(centers, colors, sigmas):
+        g = np.exp(-((yy - cy) ** 2 + (xx - cx) ** 2) / (2.0 * s * s))
+        base += g[..., None] * col * 0.95
+
+    # Add near-white edge strip to test high-end compression
+    base[:, -40:, :] = np.maximum(base[:, -40:, :], np.array([248, 248, 248], dtype=np.float32))
+    return np.clip(np.round(base), 0, 255).astype(np.uint8)
+
+
+# ── 13. Mixed-illumination chart ───────────────────────────────────────
+
+def gen_mixed_illumination_chart(h: int = 256, w: int = 512) -> np.ndarray:
+    """Single frame with warm-left and cool-right illumination gradient."""
+    x = np.linspace(0.0, 1.0, w, dtype=np.float32)
+    warm = np.array([255, 214, 170], dtype=np.float32) / 255.0
+    cool = np.array([185, 215, 255], dtype=np.float32) / 255.0
+    illum = warm[None, None, :] * (1.0 - x[None, :, None]) + cool[None, None, :] * x[None, :, None]
+
+    scene = np.full((h, w, 3), 0.55, dtype=np.float32)
+    # neutral object
+    scene[56:200, 180:332, :] = 0.78
+    # skin-like patch
+    scene[88:188, 66:156, :] = np.array([0.80, 0.64, 0.54], dtype=np.float32)
+    # foliage-like patch
+    scene[88:188, 356:446, :] = np.array([0.36, 0.55, 0.30], dtype=np.float32)
+
+    out = scene * illum
+    return np.clip(np.round(out * 255.0), 0, 255).astype(np.uint8)
 
 
 # ── main ────────────────────────────────────────────────────────────────
@@ -223,6 +289,9 @@ GENERATORS = {
     "08_random_noise":       gen_random_noise,
     "09_grey_steps":         gen_grey_steps,
     "10_luma_node_chart":    gen_luma_node_chart,
+    "11_ui_text_contrast":   gen_ui_text_contrast,
+    "12_specular_clip_chart": gen_specular_clip_chart,
+    "13_mixed_illumination_chart": gen_mixed_illumination_chart,
 }
 
 
@@ -255,6 +324,9 @@ def main() -> None:
     print("  08  Random noise        — 随机噪声，stress test 极端值")
     print("  09  Grey steps          — 16 级均匀灰阶，验证亮度分段一致性")
     print("  10  Luma node chart     — 12 节点精确灰度，验证 gain 节点精确匹配")
+    print("  11  UI text contrast    — 文本/细线/高对比，检查边缘与中性色偏")
+    print("  12  Specular clip chart — 高光斑与近白区域，检查 clipping 附近色偏")
+    print("  13  Mixed illumination  — 左暖右冷混光，检查白平衡过渡与肤色稳定")
 
 
 if __name__ == "__main__":
