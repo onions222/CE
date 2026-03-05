@@ -118,7 +118,7 @@ pip install -e .
 | `warm_gains_bins` | 自动生成 | (12,3) ndarray，每个亮度节点的 RGB 暖色增益 |
 | `cool_gains_bins` | 自动生成 | (12,3) ndarray，每个亮度节点的 RGB 冷色增益 |
 
-默认端点由 CCT 自动计算（`4500K -> warm`, `6500K -> neutral`, `9300K -> cool`），
+默认端点由 CCT 自动计算（`3000K -> warm`, `6500K -> neutral`, `9300K -> cool`），
 运行时仍使用 RGB gain（无 3x3 矩阵运算）。
 
 用户可自定义：

@@ -24,9 +24,11 @@ LUMA_NODES_12: list[int] = [15, 31, 47, 63, 95, 127, 159, 191, 223, 239, 247, 25
 # ---------------------------------------------------------------------------
 # Default CCT anchors (Kelvin)
 # ---------------------------------------------------------------------------
-CCT_WARM_DEFAULT: float = 4500.0
+CCT_WARM_DEFAULT: float = 3000.0
 CCT_NEUTRAL_DEFAULT: float = 6500.0
 CCT_COOL_DEFAULT: float = 9300.0
+CCT_XY_SPLIT_DEFAULT: float = 4000.0
+CCT_XY_BLEND_HALF_WIDTH_DEFAULT: float = 100.0
 
 
 def wa_sel_to_cct(
@@ -56,8 +58,22 @@ def map_sat_threshold_gamma_to_linear(s_gamma: float) -> float:
     return 2.0 * d_linear
 
 
-def cct_to_xy_approx(cct: float) -> tuple[float, float]:
-    """Approximate CIE 1931 xy from CCT using standard polynomial fits."""
+def cct_to_xy_approx(
+    cct: float,
+    split_k: float = CCT_XY_SPLIT_DEFAULT,
+    blend_half_width_k: float = CCT_XY_BLEND_HALF_WIDTH_DEFAULT,
+) -> tuple[float, float]:
+    """Approximate CIE 1931 xy from CCT using standard polynomial fits.
+
+    Parameters
+    ----------
+    cct : float
+        Correlated color temperature in Kelvin.
+    split_k : float
+        Branch split center (default 4000K).
+    blend_half_width_k : float
+        Smooth blending half-width around ``split_k``.
+    """
     t = float(np.clip(cct, 1667.0, 25000.0))
 
     x_low = (
@@ -73,13 +89,19 @@ def cct_to_xy_approx(cct: float) -> tuple[float, float]:
         + 0.240390
     )
 
-    # Smooth blend around 4000K to avoid tiny LUT kinks at the branch point.
-    blend_lo = 3900.0
-    blend_hi = 4100.0
-    if t <= blend_lo:
+    split = float(split_k)
+    half = max(float(blend_half_width_k), 0.0)
+    blend_lo = split - half
+    blend_hi = split + half
+    if half <= 0.0:
+        x = x_low if t <= split else x_high
+        u = 0.0
+    elif t <= blend_lo:
         x = x_low
+        u = 0.0
     elif t >= blend_hi:
         x = x_high
+        u = 1.0
     else:
         u = (t - blend_lo) / (blend_hi - blend_lo)
         u = u * u * (3.0 - 2.0 * u)  # smoothstep
@@ -94,8 +116,6 @@ def cct_to_xy_approx(cct: float) -> tuple[float, float]:
     else:
         y_mid = -0.9549476 * (x ** 3) - 1.37418593 * (x ** 2) + 2.09137015 * x - 0.16748867
         y_high = 3.0817580 * (x ** 3) - 5.87338670 * (x ** 2) + 3.75112997 * x - 0.37001483
-        u = (t - blend_lo) / (blend_hi - blend_lo)
-        u = u * u * (3.0 - 2.0 * u)
         y = (1.0 - u) * y_mid + u * y_high
 
     return float(x), float(y)
@@ -121,11 +141,17 @@ def build_cct_gain_lut(
     warm_k: float = CCT_WARM_DEFAULT,
     neutral_k: float = CCT_NEUTRAL_DEFAULT,
     cool_k: float = CCT_COOL_DEFAULT,
+    xy_split_k: float = CCT_XY_SPLIT_DEFAULT,
+    xy_blend_half_width_k: float = CCT_XY_BLEND_HALF_WIDTH_DEFAULT,
     gain_min: float = 0.5,
     gain_max: float = 1.8,
 ) -> np.ndarray:
     """Build (128,3) per-WA_SEL RGB gain LUT from CCT anchors."""
-    x_n, y_n = cct_to_xy_approx(neutral_k)
+    x_n, y_n = cct_to_xy_approx(
+        neutral_k,
+        split_k=xy_split_k,
+        blend_half_width_k=xy_blend_half_width_k,
+    )
     neutral_rgb = _xy_to_linear_srgb_white(x_n, y_n)
 
     lut = np.empty((128, 3), dtype=np.float64)
@@ -133,7 +159,11 @@ def build_cct_gain_lut(
         cct = wa_sel_to_cct(
             wa_sel, warm_k=warm_k, neutral_k=neutral_k, cool_k=cool_k
         )
-        x_t, y_t = cct_to_xy_approx(cct)
+        x_t, y_t = cct_to_xy_approx(
+            cct,
+            split_k=xy_split_k,
+            blend_half_width_k=xy_blend_half_width_k,
+        )
         target_rgb = _xy_to_linear_srgb_white(x_t, y_t)
 
         gain = target_rgb / neutral_rgb
@@ -264,6 +294,8 @@ class WPAConfig:
     cct_warm_k: float = CCT_WARM_DEFAULT
     cct_neutral_k: float = CCT_NEUTRAL_DEFAULT
     cct_cool_k: float = CCT_COOL_DEFAULT
+    cct_xy_split_k: float = CCT_XY_SPLIT_DEFAULT
+    cct_xy_blend_half_width_k: float = CCT_XY_BLEND_HALF_WIDTH_DEFAULT
     warm_gains_bins: Optional[np.ndarray] = None
     cool_gains_bins: Optional[np.ndarray] = None
 
@@ -274,6 +306,8 @@ class WPAConfig:
                 warm_k=self.cct_warm_k,
                 neutral_k=self.cct_neutral_k,
                 cool_k=self.cct_cool_k,
+                xy_split_k=self.cct_xy_split_k,
+                xy_blend_half_width_k=self.cct_xy_blend_half_width_k,
             )
             warm_gain_global = tuple(lut[0].tolist())
             cool_gain_global = tuple(lut[127].tolist())

@@ -6,7 +6,14 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import numpy as np
-from wpa.config import build_cct_gain_lut
+from wpa.config import (
+    CCT_COOL_DEFAULT,
+    CCT_NEUTRAL_DEFAULT,
+    CCT_WARM_DEFAULT,
+    CCT_XY_BLEND_HALF_WIDTH_DEFAULT,
+    CCT_XY_SPLIT_DEFAULT,
+    build_cct_gain_lut,
+)
 
 # ---------------------------------------------------------------------------
 # Fixed 12-bin luma nodes (same as float version)
@@ -30,13 +37,26 @@ def _atten_curve(y: float) -> float:
         return 0.65
 
 
-def _build_wa_base_gain_lut_fixed(coeff_frac_bits: int) -> np.ndarray:
+def _build_wa_base_gain_lut_fixed(
+    coeff_frac_bits: int,
+    warm_k: float,
+    neutral_k: float,
+    cool_k: float,
+    xy_split_k: float,
+    xy_blend_half_width_k: float,
+) -> np.ndarray:
     """Build fixed-point anchor gain LUT: (3, 3) int32.
 
     Anchors are [warm(wa=0), neutral(wa=64), cool(wa=127)].
     """
     one = 1 << coeff_frac_bits
-    g_base = build_cct_gain_lut()  # (128, 3), float
+    g_base = build_cct_gain_lut(
+        warm_k=warm_k,
+        neutral_k=neutral_k,
+        cool_k=cool_k,
+        xy_split_k=xy_split_k,
+        xy_blend_half_width_k=xy_blend_half_width_k,
+    )  # (128, 3), float
 
     table = np.empty((3, 3), dtype=np.int32)
     anchors = g_base[[0, 64, 127]].copy()
@@ -85,6 +105,11 @@ class FixedWPAConfig:
     sat_s1: int = 500           # threshold in 0-255 uint8 scale
 
     # --- gain tables ------------------------------------------------------
+    cct_warm_k: float = CCT_WARM_DEFAULT
+    cct_neutral_k: float = CCT_NEUTRAL_DEFAULT
+    cct_cool_k: float = CCT_COOL_DEFAULT
+    cct_xy_split_k: float = CCT_XY_SPLIT_DEFAULT
+    cct_xy_blend_half_width_k: float = CCT_XY_BLEND_HALF_WIDTH_DEFAULT
     wa_base_gain_lut_fixed: Optional[np.ndarray] = None   # (3,3) int32: warm/neutral/cool
     atten_q_lut_fixed: Optional[np.ndarray] = None        # (12,) int32 in Q0.F
 
@@ -94,7 +119,12 @@ class FixedWPAConfig:
             raise ValueError("coeff_frac_bits must be 8 or 10")
         if self.wa_base_gain_lut_fixed is None:
             self.wa_base_gain_lut_fixed = _build_wa_base_gain_lut_fixed(
-                self.coeff_frac_bits
+                self.coeff_frac_bits,
+                warm_k=self.cct_warm_k,
+                neutral_k=self.cct_neutral_k,
+                cool_k=self.cct_cool_k,
+                xy_split_k=self.cct_xy_split_k,
+                xy_blend_half_width_k=self.cct_xy_blend_half_width_k,
             )
         self.wa_base_gain_lut_fixed = np.asarray(
             self.wa_base_gain_lut_fixed, dtype=np.int32
