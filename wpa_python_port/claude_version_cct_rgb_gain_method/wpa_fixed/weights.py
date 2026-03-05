@@ -83,19 +83,30 @@ def interpolate_gains_fixed(
 
     span = (node_hi - node_lo).astype(np.int32)
     safe_span = np.where(span > 0, span, 1)
+    span_all = np.diff(nodes).astype(np.int32)
+    spans_are_pow2 = (
+        np.all(span_all > 0)
+        and np.all((span_all & (span_all - 1)) == 0)
+    )
 
     # t_fixed = ((y - node_lo) << interp_bits) / span
-    # Use integer division with rounding:
-    #   t = ((y - node_lo) << interp_bits + span // 2) // span
+    # Use rounded right-shift when span is power-of-two, otherwise
+    # fall back to integer division.
     numer = ((y - node_lo) << interp_bits) + (safe_span >> 1)
-    t = np.clip(numer // safe_span, 0, 1 << interp_bits).astype(np.int32)
+    if spans_are_pow2:
+        shift_lut = np.zeros(n_nodes, dtype=np.int32)
+        shift_lut[:-1] = np.array(
+            [int(s).bit_length() - 1 for s in span_all],
+            dtype=np.int32,
+        )
+        t = np.clip(numer >> shift_lut[idx_lo], 0, 1 << interp_bits).astype(np.int32)
+    else:
+        t = np.clip(numer // safe_span, 0, 1 << interp_bits).astype(np.int32)
 
     gain_lo = gains[idx_lo]  # (H, W, 3)
     gain_hi = gains[idx_hi]  # (H, W, 3)
 
     t_3d = t[..., np.newaxis]  # (H, W, 1)
-    interp_one = 1 << interp_bits
-
     # gain = gain_lo + (t * (gain_hi - gain_lo) + HALF_INTERP) >> interp_bits
     delta = gain_hi - gain_lo
     half_interp = 1 << (interp_bits - 1)

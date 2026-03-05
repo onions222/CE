@@ -11,6 +11,21 @@ def _bytes_from_bits(bits: int) -> int:
     return (bits + 7) // 8
 
 
+def _interp_uses_generic_divider(luma_nodes: list[int]) -> bool:
+    """Return True when luma interpolation cannot be reduced to shifts.
+
+    For the default node set, all adjacent spans are {8,16,32} so the
+    interpolation denominator is power-of-two and can be implemented as
+    right-shifts (no generic divider).
+    """
+    if len(luma_nodes) < 2:
+        return False
+    spans = [int(luma_nodes[i + 1]) - int(luma_nodes[i]) for i in range(len(luma_nodes) - 1)]
+    if any(s <= 0 for s in spans):
+        return True
+    return any((s & (s - 1)) != 0 for s in spans)
+
+
 def collect_hw_stats(cfg: FixedWPAConfig) -> dict:
     """Collect static and dynamic hardware-cost stats for current config."""
     coeff_w = cfg.coeff_frac_bits + 1  # UQ1.F
@@ -30,6 +45,8 @@ def collect_hw_stats(cfg: FixedWPAConfig) -> dict:
     runtime_bin_bits = runtime_bin_entries * coeff_w
     luma_nodes_bits = n_bins * 8
 
+    interp_has_divider = _interp_uses_generic_divider(cfg.luma_nodes)
+
     # Per-pixel dynamic ops for current runtime path.
     # Counts are scalar ops; RGB vector ops are expanded per channel.
     ops = {
@@ -39,8 +56,8 @@ def collect_hw_stats(cfg: FixedWPAConfig) -> dict:
         "interp_add": 8,   # t: +1, per-channel interp: +6, total +1
         "interp_sub": 5,   # y-node_lo, node_hi-node_lo, plus 3 channel deltas
         "interp_mul": 3,   # t * delta for RGB
-        "interp_div": 1,   # numer // span
-        "interp_shift": 2, # y delta << F, interp >> F
+        "interp_div": 1 if interp_has_divider else 0,  # numer // span or shift
+        "interp_shift": 2 if interp_has_divider else 3,  # +1 when span is power-of-two
         "apply_mul": 3,    # pixel * gain for RGB
         "apply_add": 3,    # + rounding bias
         "apply_shift": 3,  # >> coeff_frac_bits
