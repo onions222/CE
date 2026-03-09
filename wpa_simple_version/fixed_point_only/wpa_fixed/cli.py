@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 import numpy as np
 
@@ -25,6 +26,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--warm-strength-q12", dest="warm_strength_q", type=int, default=None, help=argparse.SUPPRESS)
     p.add_argument("--cool-strength-q12", dest="cool_strength_q", type=int, default=None, help=argparse.SUPPRESS)
     p.add_argument("--report", action="store_true", help="Print simple integer-path metrics")
+    p.add_argument(
+        "--jpeg-quality",
+        type=int,
+        default=95,
+        help="JPEG quality when output extension is .jpg/.jpeg (1-100, default: 95)",
+    )
+    p.add_argument(
+        "--jpeg-subsampling",
+        type=int,
+        choices=[0, 1, 2],
+        default=0,
+        help="JPEG chroma subsampling for .jpg/.jpeg output (0:4:4:4, 1:4:2:2, 2:4:2:0)",
+    )
     return p
 
 
@@ -58,6 +72,9 @@ def main(argv: list[str] | None = None) -> int:
     if not (0 <= args.sat_s0_255 <= 510 and 0 <= args.sat_s1_255 <= 510):
         print("--sat-s0-255 and --sat-s1-255 must be in [0,510]", file=sys.stderr)
         return 2
+    if not (1 <= args.jpeg_quality <= 100):
+        print("--jpeg-quality must be in [1,100]", file=sys.stderr)
+        return 2
 
     qone = 1 << args.q_bits
     img = np.asarray(Image.open(args.in_path).convert("RGB"), dtype=np.uint8)
@@ -71,7 +88,17 @@ def main(argv: list[str] | None = None) -> int:
         cool_strength_q=(qone if args.cool_strength_q is None else args.cool_strength_q),
     )
     out = wpa_process_rgb_uint8_fixed(img, cfg)
-    Image.fromarray(out, mode="RGB").save(args.out_path)
+    out_img = Image.fromarray(out, mode="RGB")
+    ext = Path(args.out_path).suffix.lower()
+    if ext in {".jpg", ".jpeg"}:
+        out_img.save(
+            args.out_path,
+            quality=args.jpeg_quality,
+            subsampling=args.jpeg_subsampling,
+            optimize=True,
+        )
+    else:
+        out_img.save(args.out_path)
     if args.report:
         _print_report(img, out, args.wa_sel)
     return 0

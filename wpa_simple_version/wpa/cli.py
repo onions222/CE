@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 import numpy as np
 
@@ -57,6 +58,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--kelvin-warm-side-scale", type=float, default=0.2, help="Warm-side scale for Kelvin/YCoCg")
     parser.add_argument("--kelvin-cool-side-scale", type=float, default=1.0, help="Cool-side scale for Kelvin/YCoCg")
     parser.add_argument("--report", action="store_true", help="Print quantitative WPA metrics for this run")
+    parser.add_argument(
+        "--jpeg-quality",
+        type=int,
+        default=95,
+        help="JPEG quality when output extension is .jpg/.jpeg (1-100, default: 95)",
+    )
+    parser.add_argument(
+        "--jpeg-subsampling",
+        type=int,
+        choices=[0, 1, 2],
+        default=0,
+        help="JPEG chroma subsampling for .jpg/.jpeg output (0:4:4:4, 1:4:2:2, 2:4:2:0)",
+    )
     return parser
 
 
@@ -121,6 +135,9 @@ def main(argv: list[str] | None = None) -> int:
     if not (0 <= args.wa_sel <= 127):
         print("--wa-sel must be in [0,127]", file=sys.stderr)
         return 2
+    if not (1 <= args.jpeg_quality <= 100):
+        print("--jpeg-quality must be in [1,100]", file=sys.stderr)
+        return 2
 
     img = Image.open(args.in_path).convert("RGB")
     arr = np.asarray(img, dtype=np.uint8)
@@ -144,7 +161,17 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     out = wpa_process_rgb_uint8(arr, cfg)
-    Image.fromarray(out, mode="RGB").save(args.out_path)
+    out_img = Image.fromarray(out, mode="RGB")
+    ext = Path(args.out_path).suffix.lower()
+    if ext in {".jpg", ".jpeg"}:
+        out_img.save(
+            args.out_path,
+            quality=args.jpeg_quality,
+            subsampling=args.jpeg_subsampling,
+            optimize=True,
+        )
+    else:
+        out_img.save(args.out_path)
     if args.report:
         _print_report(arr, out, cfg)
     return 0

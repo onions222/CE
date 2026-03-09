@@ -100,6 +100,19 @@ def test_no_red_yellow_spike_in_highlights_for_gray_ramp() -> None:
             assert spike <= 2.0
 
 
+def test_no_hard_step_at_highlight_safety_boundary() -> None:
+    tones = np.arange(180, 256, dtype=np.uint8)
+    strip = np.stack([np.full((32, 1, 3), y, dtype=np.uint8) for y in tones], axis=1).reshape(32, len(tones), 3)
+    out = wpa_process_rgb_uint8(strip, WPAConfig(WA_EN=True, WA_SEL=20, wa_mode="diag_rgb"))
+    rg = (out[..., 0].astype(np.int32) - out[..., 1].astype(np.int32)).mean(axis=0)
+    gb = (out[..., 1].astype(np.int32) - out[..., 2].astype(np.int32)).mean(axis=0)
+
+    drg = np.diff(rg)
+    dgb = np.diff(gb)
+    assert float(np.max(np.abs(drg))) <= 6.0
+    assert float(np.max(np.abs(dgb))) <= 3.0
+
+
 def test_clipping_safety_on_highlight_gray_patch() -> None:
     img = _gray_patch(230, size=128)
     base = wpa_process_rgb_uint8(img, WPAConfig(WA_EN=True, WA_SEL=64))

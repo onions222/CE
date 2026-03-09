@@ -10,7 +10,6 @@
 | `FCA.m` | MATLAB 浮点版 |
 | `FCA_fixedpoint.py` | Python 定点版（整数运算） |
 | `FCA_fixedpoint.m` | MATLAB 定点版 |
-| `verified_hue_adj.py` | 12-bin 验证脚本（独立参考） |
 | `legacy/` | 旧版 MATLAB 实现（无 cross-sector / taper） |
 
 ## 算法特性

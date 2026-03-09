@@ -39,29 +39,29 @@ def _apply_gain_safety_and_strength(
 ) -> tuple[np.ndarray, bool]:
     """Apply one-sided high-light safety clamp and strength scaling."""
     out = np.asarray(gain, dtype=np.float32).copy()
-    high_start = float(nodes[-4])  # nodes >= 223
-    high_mask = y8 >= high_start
+    high_start = float(nodes[-4])  # nominal high-light boundary (223)
+    transition_start = float(max(int(nodes[-5]), int(high_start) - 24))
 
     touched = False
-    if np.any(high_mask):
+    if transition_start < high_start:
+        safe = np.minimum(out, 1.0)
         if side == "warm":
-            high = out[high_mask]
-            before = high.copy()
-            high = np.minimum(high, 1.0)
-            high[:, 2] = np.maximum(high[:, 2], _HIGHLIGHT_SIDE_MIN_GAIN)
-            out[high_mask] = high
-            touched = not np.allclose(before, high)
+            safe[..., 2] = np.maximum(safe[..., 2], _HIGHLIGHT_SIDE_MIN_GAIN)
         elif side == "cool":
-            high = out[high_mask]
-            before = high.copy()
-            high = np.minimum(high, 1.0)
-            high[:, 0] = np.maximum(high[:, 0], _HIGHLIGHT_SIDE_MIN_GAIN)
-            out[high_mask] = high
-            touched = not np.allclose(before, high)
+            safe[..., 0] = np.maximum(safe[..., 0], _HIGHLIGHT_SIDE_MIN_GAIN)
 
-        # Smooth high-light color offset near peak white to avoid visible top-bin jumps.
-        t = np.clip((y8[high_mask] - high_start) / (255.0 - high_start), 0.0, 1.0).astype(np.float32)
-        out[high_mask] = out[high_mask] + (t[:, None] * _HIGHLIGHT_ROLLOFF) * (1.0 - out[high_mask])
+        # Blend into safety constraints before the high-light boundary, then fully clamp above it.
+        t_safe = np.clip((y8 - transition_start) / (high_start - transition_start), 0.0, 1.0).astype(np.float32)
+        before = out.copy()
+        out = out + t_safe[..., None] * (safe - out)
+        high_mask = y8 >= high_start
+        if np.any(high_mask):
+            out[high_mask] = safe[high_mask]
+        touched = not np.allclose(before, out)
+
+        # Keep a soft rolloff near peak white to avoid color spikes.
+        t_roll = np.clip((y8 - high_start) / (255.0 - high_start), 0.0, 1.0).astype(np.float32)
+        out = out + (t_roll[..., None] * _HIGHLIGHT_ROLLOFF) * (1.0 - out)
 
     if strength != 1.0:
         # Scale attenuation magnitude around identity: 1 - s*(1-gain).

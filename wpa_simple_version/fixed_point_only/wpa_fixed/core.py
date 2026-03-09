@@ -78,18 +78,28 @@ def _apply_gain_safety_and_strength(
     highlight_rolloff_q = int(round(0.15 * qone))
 
     out = gain_q.astype(np.int32).copy()
-    high_start = int(nodes[-4])  # >=223
+    high_start = int(nodes[-4])  # nominal high-light boundary (223)
+    transition_start = max(int(nodes[-5]), high_start - 24)
+
+    safe = np.minimum(out, qone)
+    if side == "warm":
+        safe[..., 2] = np.maximum(safe[..., 2], highlight_side_min_q)
+    else:
+        safe[..., 0] = np.maximum(safe[..., 0], highlight_side_min_q)
+
+    if transition_start < high_start:
+        t_safe = (((y8.astype(np.int64) - transition_start) << q_bits) // (high_start - transition_start)).astype(np.int32)
+        t_safe = np.clip(t_safe, 0, qone)
+        out = (
+            out.astype(np.int64)
+            + _round_shift(t_safe[..., None].astype(np.int64) * (safe.astype(np.int64) - out.astype(np.int64)), q_bits)
+        ).astype(np.int32)
+        high_mask = y8 >= high_start
+        if np.any(high_mask):
+            out[high_mask] = safe[high_mask]
+
     high_mask = y8 >= high_start
-
     if np.any(high_mask):
-        hi = out[high_mask]
-        hi = np.minimum(hi, qone)
-        if side == "warm":
-            hi[:, 2] = np.maximum(hi[:, 2], highlight_side_min_q)
-        else:
-            hi[:, 0] = np.maximum(hi[:, 0], highlight_side_min_q)
-        out[high_mask] = hi
-
         t = (((y8[high_mask].astype(np.int64) - high_start) << q_bits) // (255 - high_start)).astype(np.int32)
         t = np.clip(t, 0, qone)
         roll = _round_shift(t.astype(np.int64) * highlight_rolloff_q, q_bits).astype(np.int32)

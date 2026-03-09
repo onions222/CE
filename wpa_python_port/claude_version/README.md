@@ -118,7 +118,8 @@ pip install -e .
 | `warm_gains_bins` | 自动生成 | (12,3) ndarray，每个亮度节点的 RGB 暖色增益 |
 | `cool_gains_bins` | 自动生成 | (12,3) ndarray，每个亮度节点的 RGB 冷色增益 |
 
-默认端点：`warm = (1.40, 1.00, 0.60)`，`cool = (0.60, 1.00, 1.40)`
+默认端点由 CCT 自动计算（`4500K -> warm`, `6500K -> neutral`, `9300K -> cool`），
+运行时仍使用 RGB gain（无 3x3 矩阵运算）。
 
 用户可自定义：
 
@@ -165,6 +166,7 @@ wpa/
 tests/
 ├── test_core.py     # 核心流程测试 (identity, gamma roundtrip, 方向性)
 └── test_bins.py     # 12-bin 插值、增益形状、亮度代理测试
+└── test_cct_gain.py # CCT 映射与 gain LUT 测试
 ALGORITHM.md         # 详细算法文档 (含公式)
 pyproject.toml       # 项目配置
 ```
@@ -178,7 +180,7 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-42 项测试覆盖：identity 通过、sRGB 往返 ≤1 LSB、饱和度保护、暖/冷方向性、
+48 项测试覆盖：identity 通过、sRGB 往返 ≤1 LSB、饱和度保护、暖/冷方向性、
 12-bin 插值正确性、默认增益形状等。
 
 ---

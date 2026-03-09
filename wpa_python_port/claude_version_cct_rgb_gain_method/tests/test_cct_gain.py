@@ -1,0 +1,73 @@
+"""Tests for CCT-driven white-point RGB gain generation."""
+
+from __future__ import annotations
+
+import numpy as np
+
+from wpa.config import (
+    build_cct_gain_lut,
+    cct_to_xy_approx,
+    map_sat_threshold_gamma_to_linear,
+    wa_sel_to_cct,
+)
+
+
+def test_wa_sel_to_cct_anchors() -> None:
+    assert wa_sel_to_cct(0) == 3000.0
+    assert wa_sel_to_cct(64) == 6500.0
+    assert wa_sel_to_cct(127) == 9300.0
+
+
+def test_wa_sel_to_cct_monotonic() -> None:
+    vals = np.array([wa_sel_to_cct(i) for i in range(128)], dtype=np.float64)
+    assert np.all(np.diff(vals) >= 0.0)
+
+
+def test_cct_gain_lut_shape() -> None:
+    lut = build_cct_gain_lut()
+    assert lut.shape == (128, 3)
+
+
+def test_cct_gain_lut_identity_at_64() -> None:
+    lut = build_cct_gain_lut()
+    np.testing.assert_allclose(lut[64], np.array([1.0, 1.0, 1.0]), atol=1e-6)
+
+
+def test_cct_gain_lut_direction() -> None:
+    lut = build_cct_gain_lut()
+    warm = lut[0]
+    cool = lut[127]
+    assert warm[0] > warm[2], f"warm endpoint expected R>B, got {warm}"
+    assert cool[2] > cool[0], f"cool endpoint expected B>R, got {cool}"
+
+
+def test_cct_gain_lut_bounds() -> None:
+    lut = build_cct_gain_lut()
+    assert np.all(np.isfinite(lut))
+    assert np.all(lut > 0.0)
+
+
+def test_sat_threshold_mapping_linear_domain_not_div255() -> None:
+    mapped = map_sat_threshold_gamma_to_linear(100.0)
+    old = 100.0 / 255.0
+    assert 0.0 < mapped < 2.0
+    assert abs(mapped - old) > 0.05
+
+
+def test_sat_threshold_mapping_endpoints() -> None:
+    assert map_sat_threshold_gamma_to_linear(0.0) == 0.0
+    assert map_sat_threshold_gamma_to_linear(510.0) == 2.0
+
+
+def test_cct_xy_continuity_around_4000k() -> None:
+    x1, y1 = cct_to_xy_approx(3999.9)
+    x2, y2 = cct_to_xy_approx(4000.1)
+    assert abs(x2 - x1) < 2e-5
+    assert abs(y2 - y1) < 2e-5
+
+
+def test_cct_xy_continuity_around_custom_split() -> None:
+    x1, y1 = cct_to_xy_approx(4999.9, split_k=5000.0, blend_half_width_k=120.0)
+    x2, y2 = cct_to_xy_approx(5000.1, split_k=5000.0, blend_half_width_k=120.0)
+    assert abs(x2 - x1) < 2e-5
+    assert abs(y2 - y1) < 2e-5

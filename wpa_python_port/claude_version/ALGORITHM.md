@@ -151,12 +151,16 @@ $$
 
 ## 6. 默认增益表自动生成
 
-### 6.1 全局增益端点
+### 6.1 全局增益端点（CCT 驱动）
 
-```
-warm_gain_global = (1.40, 1.00, 0.60)   # R↑ G不变 B↓
-cool_gain_global = (0.60, 1.00, 1.40)   # R↓ G不变 B↑
-```
+默认不再手工固定 warm/cool 端点，而是先由 `WA_SEL -> CCT` 得到目标色温，
+再通过 CCT 近似白点模型生成全局 RGB gain 端点：
+
+- `WA_SEL=0` 对应 `4500K`（warm endpoint）
+- `WA_SEL=64` 对应 `6500K`（neutral, gain=(1,1,1)）
+- `WA_SEL=127` 对应 `9300K`（cool endpoint）
+
+实现上采用 `cct_gain_lut[128][3]`，运行时只查表，不做矩阵运算。
 
 ### 6.2 亮度衰减曲线
 

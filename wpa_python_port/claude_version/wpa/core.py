@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .config import WPAConfig
+from .config import WPAConfig, map_sat_threshold_gamma_to_linear
 from .gamma import degamma, engamma
 from .weights import compute_luma_proxy, compute_sat_weight, interpolate_gains_12bin
 
@@ -35,6 +35,9 @@ def _wa_sel_to_alpha(wa_sel: int) -> tuple[str, float]:
     -------
     (side, alpha) where side ∈ {"warm", "cool", "identity"}, alpha ∈ [0, 1].
     """
+    # The warm/cool denominator asymmetry is intentional:
+    # warm side has 64 codes (0..63), cool side has 63 codes (65..127),
+    # with 64 reserved as neutral identity.
     if wa_sel < 64:
         return "warm", (64 - wa_sel) / 64.0
     elif wa_sel == 64:
@@ -123,10 +126,13 @@ def wpa_process_rgb_uint8(
     # ------------------------------------------------------------------
     if cfg.sat_en:
         if cfg.sat_weight_domain == "linear":
-            # Scale thresholds to [0, 1] domain — user thresholds are in
-            # 0-255 space, so divide by 255.
+            # Map gamma-domain thresholds (0..510 scale) into linear-domain
+            # saturation metric scale [0,2]. This preserves threshold intent
+            # much better than naive division by 255.
+            s0_linear = map_sat_threshold_gamma_to_linear(cfg.sat_s0)
+            s1_linear = map_sat_threshold_gamma_to_linear(cfg.sat_s1)
             w = compute_sat_weight(
-                linear, s0=cfg.sat_s0 / 255.0, s1=cfg.sat_s1 / 255.0,
+                linear, s0=s0_linear, s1=s1_linear,
             )
         else:
             # Gamma-domain weight — thresholds in 0-255 scale

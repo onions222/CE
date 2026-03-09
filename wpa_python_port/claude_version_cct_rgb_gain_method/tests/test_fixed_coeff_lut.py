@@ -1,0 +1,80 @@
+from __future__ import annotations
+
+import numpy as np
+
+from wpa_fixed import FixedWPAConfig, wpa_fixed_process
+
+
+def _make_gradient_image(h: int = 8, w: int = 64) -> np.ndarray:
+    row = np.linspace(0, 255, w, dtype=np.uint8)
+    plane = np.tile(row, (h, 1))
+    return np.stack([plane, plane, plane], axis=-1)
+
+
+def _mean_rgb(img: np.ndarray) -> np.ndarray:
+    return img.reshape(-1, 3).mean(axis=0)
+
+
+def test_wa_gain_lut_shape_and_identity_anchor() -> None:
+    cfg = FixedWPAConfig(coeff_frac_bits=8)
+    assert cfg.wa_base_gain_lut_fixed.shape == (3, 3)
+    np.testing.assert_array_equal(cfg.wa_base_gain_lut_fixed[1], np.full((3,), 1 << 8))
+    np.testing.assert_array_equal(cfg.runtime_base_gain_fixed(0), cfg.wa_base_gain_lut_fixed[0])
+    np.testing.assert_array_equal(cfg.runtime_base_gain_fixed(64), cfg.wa_base_gain_lut_fixed[1])
+    cool_expected = cfg.wa_base_gain_lut_fixed[1] + (
+        ((63 * (cfg.wa_base_gain_lut_fixed[2] - cfg.wa_base_gain_lut_fixed[1])) + 32) >> 6
+    )
+    np.testing.assert_array_equal(cfg.runtime_base_gain_fixed(127), cool_expected)
+    gains = cfg.runtime_bin_gains_fixed(64)
+    assert gains.shape == (12, 3)
+    np.testing.assert_array_equal(gains, np.full((12, 3), 1 << 8))
+
+
+def test_wa_gain_lut_supports_10bit_coeff() -> None:
+    cfg = FixedWPAConfig(coeff_frac_bits=10)
+    assert cfg.wa_base_gain_lut_fixed.shape == (3, 3)
+    np.testing.assert_array_equal(cfg.wa_base_gain_lut_fixed[1], np.full((3,), 1 << 10))
+    gains = cfg.runtime_bin_gains_fixed(64)
+    assert gains.shape == (12, 3)
+    np.testing.assert_array_equal(gains, np.full((12, 3), 1 << 10))
+
+
+def test_fixed_lut_respects_warm_cct_override() -> None:
+    cfg_3000 = FixedWPAConfig(coeff_frac_bits=10, cct_warm_k=3000.0)
+    cfg_4500 = FixedWPAConfig(coeff_frac_bits=10, cct_warm_k=4500.0)
+    warm_3000 = cfg_3000.wa_base_gain_lut_fixed[0]
+    warm_4500 = cfg_4500.wa_base_gain_lut_fixed[0]
+    assert warm_3000[0] >= warm_4500[0]
+    assert warm_3000[2] <= warm_4500[2]
+
+
+def test_fixed_pipeline_warm_cool_direction_for_8bit_coeff() -> None:
+    img = _make_gradient_image()
+    out_warm = wpa_fixed_process(img, FixedWPAConfig(wa_sel=0, coeff_frac_bits=8))
+    out_cool = wpa_fixed_process(img, FixedWPAConfig(wa_sel=127, coeff_frac_bits=8))
+
+    m_warm = _mean_rgb(out_warm)
+    m_cool = _mean_rgb(out_cool)
+
+    assert m_warm[0] > m_warm[2], "warm should bias R over B"
+    assert m_cool[2] > m_cool[0], "cool should bias B over R"
+
+
+def test_10bit_coeff_not_worse_than_8bit_vs_float_reference() -> None:
+    img = _make_gradient_image(h=16, w=128)
+
+    # Fixed pipeline with 8-bit and 10-bit coefficients.
+    cfg8 = FixedWPAConfig(wa_sel=96, coeff_frac_bits=8)
+    cfg10 = FixedWPAConfig(wa_sel=96, coeff_frac_bits=10)
+    out8 = wpa_fixed_process(img, cfg8).astype(np.int16)
+    out10 = wpa_fixed_process(img, cfg10).astype(np.int16)
+
+    # Float reference from existing pipeline.
+    from wpa.config import WPAConfig
+    from wpa.core import wpa_process_rgb_uint8
+
+    ref = wpa_process_rgb_uint8(img, WPAConfig(wa_sel=96)).astype(np.int16)
+
+    mae8 = np.mean(np.abs(out8 - ref))
+    mae10 = np.mean(np.abs(out10 - ref))
+    assert mae10 <= mae8 + 1e-6

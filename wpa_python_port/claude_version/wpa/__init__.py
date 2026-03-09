@@ -14,7 +14,7 @@ Quick start::
     out = wpa_process_rgb_uint8(img, cfg)
 """
 
-from .config import WPAConfig
+from .config import WPAConfig, build_cct_gain_lut, wa_sel_to_cct
 from .core import wpa_process_rgb_uint8
 
-__all__ = ["WPAConfig", "wpa_process_rgb_uint8"]
+__all__ = ["WPAConfig", "wpa_process_rgb_uint8", "wa_sel_to_cct", "build_cct_gain_lut"]
