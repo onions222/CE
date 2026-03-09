@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build WPA test image set by profile (smoke/core/full)."""
+"""Build WPA test image set by profile."""
 
 from __future__ import annotations
 
@@ -28,24 +28,24 @@ def _build_kodak_dict(names: Iterable[str]) -> dict[str, str]:
     return d
 
 
-def _generate_synthetic(selected: list[str], out_dir: Path) -> list[str]:
+def _generate_synthetic(selected: list[str], out_dir: Path, root: Path) -> dict[str, str]:
     out_dir.mkdir(parents=True, exist_ok=True)
-    generated: list[str] = []
+    generated: dict[str, str] = {}
     print("\n[Synthetic]")
     for name in selected:
         if name not in GENERATORS:
             raise ValueError(f"Unknown synthetic generator: {name}")
         img = GENERATORS[name]()
         fp = save_synth(img, out_dir, name)
-        generated.append(str(fp.relative_to(out_dir.parent.parent)))
+        generated[name] = str(fp.relative_to(root))
     return generated
 
 
-def _download_real_kodak(selected: list[str], out_dir: Path) -> list[str]:
+def _download_real_kodak(selected: list[str], out_dir: Path, root: Path) -> dict[str, str]:
     print("\n[Real/Kodak]")
     names = _build_kodak_dict(selected)
     files = download_kodak(out_dir, names)
-    return [str(p.relative_to(out_dir.parent)) for p in files]
+    return {p.name: str(p.relative_to(root)) for p in files}
 
 
 def _build_jpeg_ladder(
@@ -86,16 +86,19 @@ def _write_manifest(output_dir: Path, profile: str, manifest: dict) -> tuple[Pat
         f"- synthetic: {len(manifest['synthetic_files'])}",
         f"- real_kodak: {len(manifest['real_files'])}",
         f"- derived_jpeg: {len(manifest['derived_files'])}",
+        f"- items: {len(manifest['items'])}",
         "",
-        "## Synthetic",
+        "## Items",
     ]
-    lines.extend([f"- `{p}`" for p in manifest["synthetic_files"]])
-    lines.append("")
-    lines.append("## Real Kodak")
-    lines.extend([f"- `{p}`" for p in manifest["real_files"]])
-    lines.append("")
-    lines.append("## Derived JPEG")
-    lines.extend([f"- `{p}`" for p in manifest["derived_files"]])
+    lines.extend(
+        [
+            (
+                f"- `{item['name']}` ({item['dataset_role']}, {item['priority']})"
+                f" -> `{item['path']}`"
+            )
+            for item in manifest["items"]
+        ]
+    )
     lines.append("")
     md_path.write_text("\n".join(lines), encoding="utf-8")
     return json_path, md_path
@@ -103,7 +106,11 @@ def _write_manifest(output_dir: Path, profile: str, manifest: dict) -> tuple[Pat
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build WPA test set by profile.")
-    parser.add_argument("--profile", choices=["smoke", "core", "full"], default="core")
+    parser.add_argument(
+        "--profile",
+        choices=["smoke", "core", "full", "smoke_visual", "core_visual", "release_visual"],
+        default="core_visual",
+    )
     parser.add_argument("--output-root", default="test_images", help="Root dir for generated dataset")
     args = parser.parse_args()
 
@@ -115,8 +122,9 @@ def main() -> None:
     kodak_dir = real_dir / "kodak"
 
     print(f"Building profile={args.profile} -> {root}")
-    synthetic_files = _generate_synthetic(spec["synthetic"], synth_dir)
-    real_files = _download_real_kodak(spec["real_kodak"], real_dir)
+    synthetic_files = _generate_synthetic(spec["synthetic"], synth_dir, root)
+    legacy_kodak = spec.get("legacy_kodak", spec.get("real_kodak", []))
+    real_files = _download_real_kodak(legacy_kodak, real_dir, root) if legacy_kodak else {}
 
     derived_files: list[str] = []
     jl = spec["jpeg_ladder"]
@@ -128,11 +136,17 @@ def main() -> None:
             qualities=jl["qualities"],
         )
 
+    items = []
+    for entry in spec.get("items", []):
+        path = synthetic_files.get(entry["name"]) or real_files.get(entry["name"])
+        items.append({**entry, "path": path})
+
     manifest = {
         "profile": args.profile,
-        "synthetic_files": synthetic_files,
-        "real_files": real_files,
+        "synthetic_files": list(synthetic_files.values()),
+        "real_files": list(real_files.values()),
         "derived_files": derived_files,
+        "items": items,
     }
     json_path, md_path = _write_manifest(root, args.profile, manifest)
 
