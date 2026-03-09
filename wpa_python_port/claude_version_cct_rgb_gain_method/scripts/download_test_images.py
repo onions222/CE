@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Download real-world test images for WPA algorithm verification.
+Download legacy Kodak baseline images for WPA algorithm verification.
 
 Sources:
   - Kodak image set (24 images, public domain, 768×512 PNG)
@@ -28,7 +28,7 @@ from pathlib import Path
 from urllib.request import urlretrieve
 from urllib.error import URLError
 
-# Kodak image set — curated subset with descriptions
+# Kodak image set — retained as a legacy baseline subset
 # Full set: http://r0k.us/graphics/kodak/kodak/
 KODAK_IMAGES = {
     # Portraits & skin tones
@@ -63,7 +63,7 @@ KODAK_BASE_URL = "http://r0k.us/graphics/kodak/kodak/"
 
 
 def download_kodak(output_dir: Path, names: dict[str, str]) -> list[Path]:
-    """Download Kodak images."""
+    """Download legacy Kodak baseline images."""
     downloaded = []
     kodak_dir = output_dir / "kodak"
     kodak_dir.mkdir(parents=True, exist_ok=True)
@@ -87,7 +87,7 @@ def download_kodak(output_dir: Path, names: dict[str, str]) -> list[Path]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Download real-world test images for WPA testing"
+        description="Download legacy Kodak baseline images for WPA testing"
     )
     parser.add_argument(
         "--output-dir", "-o",
@@ -108,16 +108,16 @@ def main() -> None:
     # --- Kodak images ---
     if args.all:
         all_kodak = {f"kodim{i:02d}.png": f"Kodak #{i}" for i in range(1, 25)}
-        print(f"📦 Kodak image set (all 24 images):\n")
+        print(f"📦 Kodak legacy baseline (all 24 images):\n")
         downloaded = download_kodak(out, all_kodak)
     else:
-        print(f"📦 Kodak image set (curated {len(KODAK_IMAGES)} images):\n")
+        print(f"📦 Kodak legacy baseline (curated {len(KODAK_IMAGES)} images):\n")
         downloaded = download_kodak(out, KODAK_IMAGES)
 
     print(f"\n✅ Downloaded {len(downloaded)} images to {out}/")
 
     print("\n" + "=" * 60)
-    print("Image selection rationale for WPA testing:")
+    print("Legacy baseline selection rationale for WPA testing:")
     print("=" * 60)
     print("""
   Category              Images          Why

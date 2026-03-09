@@ -148,6 +148,24 @@ def gen_highlight_lowlight(patch_size: int = 64) -> np.ndarray:
     return img
 
 
+def gen_near_black_steps(patch_size: int = 64) -> np.ndarray:
+    """Dense neutral steps in the dark region for shadow stability checks."""
+    values = list(range(0, 34, 2))
+    img = np.zeros((patch_size, len(values) * patch_size, 3), dtype=np.uint8)
+    for i, v in enumerate(values):
+        img[:, i*patch_size:(i+1)*patch_size] = v
+    return img
+
+
+def gen_near_white_steps(patch_size: int = 64) -> np.ndarray:
+    """Dense neutral steps in the highlight region for near-white stability checks."""
+    values = list(range(223, 256, 2))
+    img = np.zeros((patch_size, len(values) * patch_size, 3), dtype=np.uint8)
+    for i, v in enumerate(values):
+        img[:, i*patch_size:(i+1)*patch_size] = v
+    return img
+
+
 # ── 6. Skin tone patches ───────────────────────────────────────────────
 
 def gen_skin_tones(patch_size: int = 80) -> np.ndarray:
@@ -235,6 +253,37 @@ def gen_ui_text_contrast(h: int = 256, w: int = 512) -> np.ndarray:
     return img
 
 
+def gen_ui_dark_theme_chart(h: int = 256, w: int = 512) -> np.ndarray:
+    """Dark-theme UI chart with neutral layers and bright text bars."""
+    img = np.full((h, w, 3), 18, dtype=np.uint8)
+    img[0:52, :, :] = 28
+    img[72:172, 24:244, :] = 36
+    img[72:172, 268:488, :] = 36
+    for y in [88, 104, 120, 136, 152]:
+        img[y:y + 4, 36:232, :] = 215
+        img[y:y + 4, 280:476, :] = 215
+    img[192:228, 36:72, :] = [210, 85, 85]
+    img[192:228, 92:128, :] = [90, 145, 220]
+    img[192:228, 148:184, :] = [95, 175, 105]
+    return img
+
+
+def gen_rgb_cmy_color_bars(h: int = 96, w_per_bar: int = 64) -> np.ndarray:
+    """Primary and secondary color bars for hue-shift checks."""
+    colors = [
+        (255, 0, 0),
+        (0, 255, 0),
+        (0, 0, 255),
+        (0, 255, 255),
+        (255, 0, 255),
+        (255, 255, 0),
+    ]
+    img = np.zeros((h, len(colors) * w_per_bar, 3), dtype=np.uint8)
+    for i, color in enumerate(colors):
+        img[:, i*w_per_bar:(i+1)*w_per_bar] = color
+    return img
+
+
 # ── 12. Specular clip chart ─────────────────────────────────────────────
 
 def gen_specular_clip_chart(h: int = 256, w: int = 512) -> np.ndarray:
@@ -292,6 +341,10 @@ GENERATORS = {
     "11_ui_text_contrast":   gen_ui_text_contrast,
     "12_specular_clip_chart": gen_specular_clip_chart,
     "13_mixed_illumination_chart": gen_mixed_illumination_chart,
+    "near_black_steps":      gen_near_black_steps,
+    "near_white_steps":      gen_near_white_steps,
+    "ui_dark_theme_chart":   gen_ui_dark_theme_chart,
+    "rgb_cmy_color_bars":    gen_rgb_cmy_color_bars,
 }
 
 

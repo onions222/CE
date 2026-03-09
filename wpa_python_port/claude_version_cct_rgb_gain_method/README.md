@@ -180,8 +180,25 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-48 项测试覆盖：identity 通过、sRGB 往返 ≤1 LSB、饱和度保护、暖/冷方向性、
-12-bin 插值正确性、默认增益形状等。
+测试覆盖核心算法行为，以及视觉稳定性数据集相关的 profile、synthetic chart 和 manifest 生成逻辑。
+
+## 测试数据集
+
+验证数据集现在以视觉稳定性为主，而不是以 Kodak 真实图为主：
+
+- `smoke_visual`: 最敏感的灰阶、中性、UI、近黑/近白图，用于快速回归
+- `core_visual`: 日常默认 profile，覆盖 neutral-stability core 和 color side-effect set
+- `release_visual`: 发版级 profile，额外保留少量 Kodak 作为 legacy baseline
+
+构建命令：
+
+```bash
+python scripts/build_test_set.py --profile smoke_visual
+python scripts/build_test_set.py --profile core_visual
+python scripts/build_test_set.py --profile release_visual
+```
+
+manifest 会输出 `dataset_role`、`priority`、`visual_risk` 和 `expected_observation`，便于按失真模式而不是按文件名做诊断。
 
 ---
 
