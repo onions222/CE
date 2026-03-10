@@ -18,3 +18,20 @@ def test_core_visual_profile_exposes_metadata_driven_items() -> None:
     assert item["dataset_role"] == "neutral_stability_core"
     assert item["priority"] == "P0"
     assert "dark_instability" in item["visual_risk"]
+
+
+def test_core_visual_profile_includes_new_failure_mode_driven_items() -> None:
+    spec = get_profile_spec("core_visual")
+
+    assert "bin_boundary_triplet_chart" in spec["synthetic"]
+    assert "saturation_threshold_ladder" in spec["synthetic"]
+
+
+def test_core_visual_profile_items_include_richer_inspection_metadata() -> None:
+    spec = get_profile_spec("core_visual")
+
+    item = next(entry for entry in spec["items"] if entry["name"] == "near_black_steps")
+    assert item["inspection_priority"] == "P0"
+    assert "failure_modes" in item
+    assert "recommended_wa_sel" in item
+    assert "pass_hint" in item
