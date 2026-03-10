@@ -18,7 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from validation.dataset_profiles import get_profile_spec
 from scripts.generate_test_images import GENERATORS, save as save_synth
-from scripts.download_test_images import KODAK_IMAGES, download_kodak
+from scripts.download_test_images import KODAK_IMAGES, download_kodak, download_real_world_images
 
 
 def _build_kodak_dict(names: Iterable[str]) -> dict[str, str]:
@@ -46,6 +46,11 @@ def _download_real_kodak(selected: list[str], out_dir: Path, root: Path) -> dict
     names = _build_kodak_dict(selected)
     files = download_kodak(out_dir, names)
     return {p.name: str(p.relative_to(root)) for p in files}
+
+
+def _download_real_world_sanity(selected: list[str], out_dir: Path, root: Path) -> dict[str, str]:
+    print("\n[Real/Sanity]")
+    return download_real_world_images(out_dir, selected, root)
 
 
 def _build_jpeg_ladder(
@@ -85,6 +90,7 @@ def _write_manifest(output_dir: Path, profile: str, manifest: dict) -> tuple[Pat
         "",
         f"- synthetic: {len(manifest['synthetic_files'])}",
         f"- real_kodak: {len(manifest['real_files'])}",
+        f"- real_sanity: {len(manifest.get('real_sanity_files', []))}",
         f"- derived_jpeg: {len(manifest['derived_files'])}",
         f"- items: {len(manifest['items'])}",
         "",
@@ -125,6 +131,11 @@ def main() -> None:
     synthetic_files = _generate_synthetic(spec["synthetic"], synth_dir, root)
     legacy_kodak = spec.get("legacy_kodak", spec.get("real_kodak", []))
     real_files = _download_real_kodak(legacy_kodak, real_dir, root) if legacy_kodak else {}
+    real_sanity_files = (
+        _download_real_world_sanity(spec.get("real_sanity", []), real_dir, root)
+        if spec.get("real_sanity")
+        else {}
+    )
 
     derived_files: list[str] = []
     jl = spec["jpeg_ladder"]
@@ -145,6 +156,7 @@ def main() -> None:
         "profile": args.profile,
         "synthetic_files": list(synthetic_files.values()),
         "real_files": list(real_files.values()),
+        "real_sanity_files": list(real_sanity_files.values()),
         "derived_files": derived_files,
         "items": items,
     }
@@ -155,7 +167,7 @@ def main() -> None:
     print(f"- manifest md  : {md_path}")
     print(
         f"- counts        : synthetic={len(synthetic_files)}, "
-        f"real={len(real_files)}, derived={len(derived_files)}"
+        f"real={len(real_files)}, sanity={len(real_sanity_files)}, derived={len(derived_files)}"
     )
 
 

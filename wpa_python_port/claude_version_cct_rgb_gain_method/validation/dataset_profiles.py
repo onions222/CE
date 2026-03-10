@@ -366,7 +366,13 @@ def get_profile_spec(
             "synthetic": synthetic,
             "items": _build_visual_items(synthetic),
             "legacy_kodak": list(LEGACY_KODAK_BASELINE),
-            "real_sanity": [],
+            "real_sanity": [
+                "public_portrait",
+                "public_hdr_window",
+                "public_night_neon",
+                "public_ui_workspace",
+                "research_mixed_light",
+            ],
             "jpeg_ladder": {
                 "enabled": True,
                 "source_images": ["kodim04.png", "kodim13.png", "kodim21.png"],

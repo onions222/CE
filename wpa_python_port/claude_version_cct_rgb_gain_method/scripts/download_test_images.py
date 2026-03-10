@@ -61,6 +61,59 @@ KODAK_IMAGES = {
 
 KODAK_BASE_URL = "http://r0k.us/graphics/kodak/kodak/"
 
+COMMONS_REDIRECT = "https://commons.wikimedia.org/wiki/Special:Redirect/file/"
+
+REAL_WORLD_IMAGE_GROUPS = {
+    "public_portrait": [
+        {
+            "filename": "portrait_of_woman.jpg",
+            "url": f"{COMMONS_REDIRECT}Portrait_of_woman.jpg",
+            "description": "Daylight portrait for skin-tone plausibility sanity checks",
+            "source_group": "public_portrait",
+        },
+    ],
+    "public_hdr_window": [
+        {
+            "filename": "gfp_sunroom.jpg",
+            "url": f"{COMMONS_REDIRECT}Gfp-sunroom.jpg",
+            "description": "Bright-window interior for HDR and neutral-wall inspection",
+            "source_group": "public_hdr_window",
+        },
+    ],
+    "public_night_neon": [
+        {
+            "filename": "led_and_neon_signs_on_portland_street_at_night.jpg",
+            "url": f"{COMMONS_REDIRECT}LED_and_neon_signs_on_Portland_Street_at_night.jpg",
+            "description": "Night neon scene for saturated highlights and mixed-color light",
+            "source_group": "public_night_neon",
+        },
+    ],
+    "public_ui_workspace": [
+        {
+            "filename": "desk_setup_unsplash.jpg",
+            "url": f"{COMMONS_REDIRECT}Desk_Setup_%28Unsplash%29.jpg",
+            "description": "Workspace scene with monitor and peripherals for screen-like sanity checks",
+            "source_group": "public_ui_workspace",
+        },
+    ],
+    "research_mixed_light": [
+        {
+            "filename": "lsmi_mixed_light_sample.png",
+            "url": "https://user-images.githubusercontent.com/24367643/130312876-5b2955c2-0176-4e87-ba90-7c466fa3961b.png",
+            "description": "Official LSMI sample figure representing mixed-illuminant content",
+            "source_group": "research_mixed_light",
+        },
+    ],
+    "research_outdoor_sanity": [
+        {
+            "filename": "cubepp_examples.jpg",
+            "url": "https://github.com/Visillect/CubePlusPlus/raw/master/description/examples.jpg",
+            "description": "Official Cube++ example sheet for outdoor and illumination sanity coverage",
+            "source_group": "research_outdoor_sanity",
+        },
+    ],
+}
+
 
 def download_kodak(output_dir: Path, names: dict[str, str]) -> list[Path]:
     """Download legacy Kodak baseline images."""
@@ -81,6 +134,40 @@ def download_kodak(output_dir: Path, names: dict[str, str]) -> list[Path]:
             downloaded.append(dest)
         except (URLError, OSError) as e:
             print(f"  ✗ {filename:18s}  FAILED: {e}")
+
+    return downloaded
+
+
+def download_real_world_images(
+    output_dir: Path,
+    groups: list[str],
+    root: Path | None = None,
+) -> dict[str, str]:
+    """Download a curated real-world sanity subset grouped by scene type."""
+    downloaded: dict[str, str] = {}
+    sanity_dir = output_dir / "real_sanity"
+    sanity_dir.mkdir(parents=True, exist_ok=True)
+
+    for group in groups:
+        entries = REAL_WORLD_IMAGE_GROUPS.get(group)
+        if not entries:
+            raise ValueError(f"Unknown real-world image group: {group}")
+        group_dir = sanity_dir / group
+        group_dir.mkdir(parents=True, exist_ok=True)
+        for entry in entries:
+            dest = group_dir / entry["filename"]
+            if dest.exists():
+                print(f"  ⏭ {entry['filename']:36s}  ({group})")
+            else:
+                try:
+                    print(f"  ⬇ {entry['filename']:36s}  {entry['description']}")
+                    urlretrieve(entry["url"], str(dest))
+                except (URLError, OSError) as exc:
+                    print(f"  ✗ {entry['filename']:36s}  FAILED: {exc}")
+                    continue
+
+            rel = dest.relative_to(root) if root is not None else dest
+            downloaded[entry["filename"]] = str(rel)
 
     return downloaded
 
@@ -115,6 +202,9 @@ def main() -> None:
         downloaded = download_kodak(out, KODAK_IMAGES)
 
     print(f"\n✅ Downloaded {len(downloaded)} images to {out}/")
+
+    print(f"\n📦 Real-world sanity subset ({len(REAL_WORLD_IMAGE_GROUPS)} groups):\n")
+    download_real_world_images(out, list(REAL_WORLD_IMAGE_GROUPS.keys()))
 
     print("\n" + "=" * 60)
     print("Legacy baseline selection rationale for WPA testing:")
