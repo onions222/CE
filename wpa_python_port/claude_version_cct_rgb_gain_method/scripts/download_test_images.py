@@ -25,7 +25,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
-from urllib.request import urlretrieve
+from urllib.request import Request, urlopen, urlretrieve
 from urllib.error import URLError
 
 # Kodak image set — retained as a legacy baseline subset
@@ -61,13 +61,13 @@ KODAK_IMAGES = {
 
 KODAK_BASE_URL = "http://r0k.us/graphics/kodak/kodak/"
 
-COMMONS_REDIRECT = "https://commons.wikimedia.org/wiki/Special:Redirect/file/"
+COMMONS_FILEPATH = "https://commons.wikimedia.org/wiki/Special:FilePath/"
 
 REAL_WORLD_IMAGE_GROUPS = {
     "public_portrait": [
         {
             "filename": "portrait_of_woman.jpg",
-            "url": f"{COMMONS_REDIRECT}Portrait_of_woman.jpg",
+            "url": f"{COMMONS_FILEPATH}Portrait_of_woman.jpg",
             "description": "Daylight portrait for skin-tone plausibility sanity checks",
             "source_group": "public_portrait",
         },
@@ -75,7 +75,7 @@ REAL_WORLD_IMAGE_GROUPS = {
     "public_hdr_window": [
         {
             "filename": "gfp_sunroom.jpg",
-            "url": f"{COMMONS_REDIRECT}Gfp-sunroom.jpg",
+            "url": f"{COMMONS_FILEPATH}Gfp-sunroom.jpg",
             "description": "Bright-window interior for HDR and neutral-wall inspection",
             "source_group": "public_hdr_window",
         },
@@ -83,7 +83,7 @@ REAL_WORLD_IMAGE_GROUPS = {
     "public_night_neon": [
         {
             "filename": "led_and_neon_signs_on_portland_street_at_night.jpg",
-            "url": f"{COMMONS_REDIRECT}LED_and_neon_signs_on_Portland_Street_at_night.jpg",
+            "url": f"{COMMONS_FILEPATH}LED_and_neon_signs_on_Portland_Street_at_night.jpg",
             "description": "Night neon scene for saturated highlights and mixed-color light",
             "source_group": "public_night_neon",
         },
@@ -91,7 +91,7 @@ REAL_WORLD_IMAGE_GROUPS = {
     "public_ui_workspace": [
         {
             "filename": "desk_setup_unsplash.jpg",
-            "url": f"{COMMONS_REDIRECT}Desk_Setup_%28Unsplash%29.jpg",
+            "url": f"{COMMONS_FILEPATH}Desk_Setup_%28Unsplash%29.jpg",
             "description": "Workspace scene with monitor and peripherals for screen-like sanity checks",
             "source_group": "public_ui_workspace",
         },
@@ -161,7 +161,7 @@ def download_real_world_images(
             else:
                 try:
                     print(f"  ⬇ {entry['filename']:36s}  {entry['description']}")
-                    urlretrieve(entry["url"], str(dest))
+                    _download_with_browser_headers(entry["url"], dest)
                 except (URLError, OSError) as exc:
                     print(f"  ✗ {entry['filename']:36s}  FAILED: {exc}")
                     continue
@@ -170,6 +170,13 @@ def download_real_world_images(
             downloaded[entry["filename"]] = str(rel)
 
     return downloaded
+
+
+def _download_with_browser_headers(url: str, dest: Path) -> None:
+    """Fetch assets from hosts that reject urllib's default user agent."""
+    req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urlopen(req) as src, dest.open("wb") as dst:
+        dst.write(src.read())
 
 
 def main() -> None:
