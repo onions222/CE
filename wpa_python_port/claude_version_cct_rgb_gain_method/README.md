@@ -187,8 +187,8 @@ python -m pytest tests/ -v
 验证数据集现在以视觉稳定性为主，而不是以 Kodak 真实图为主：
 
 - `smoke_visual`: 最敏感的灰阶、中性、UI、近黑/近白图，用于快速回归
-- `core_visual`: 日常默认 profile，覆盖 neutral-stability core 和 color side-effect set
-- `release_visual`: 发版级 profile，额外保留少量 Kodak 作为 legacy baseline
+- `core_visual`: 日常默认 profile，覆盖 neutral-stability core、bin boundary、2D neutral gradient、skin/saturation side-effect set
+- `release_visual`: 发版级 profile，包含 `core_visual`、精选 real-world sanity groups、少量 Kodak legacy baseline 和 JPEG ladder
 
 构建命令：
 
@@ -198,7 +198,9 @@ python scripts/build_test_set.py --profile core_visual
 python scripts/build_test_set.py --profile release_visual
 ```
 
-manifest 会输出 `dataset_role`、`priority`、`visual_risk` 和 `expected_observation`，便于按失真模式而不是按文件名做诊断。
+`release_visual` 现在会额外拉取小规模真实图 sanity layer，包括 portrait、HDR window、night neon、workspace/UI-like scene 和 mixed-light research sample。
+
+manifest 会输出 `dataset_role`、`inspection_priority`、`failure_modes`、`recommended_wa_sel`、`pass_hint` 和 `expected_observation`，便于按失真模式而不是按文件名做诊断。
 
 ---
 

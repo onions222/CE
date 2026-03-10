@@ -1,0 +1,252 @@
+{
+  "profile": "smoke_visual",
+  "synthetic_files": [
+    "synthetic/01_grey_ramp.png",
+    "synthetic/09_grey_steps.png",
+    "synthetic/10_luma_node_chart.png",
+    "synthetic/11_ui_text_contrast.png",
+    "synthetic/near_black_steps.png",
+    "synthetic/near_white_steps.png",
+    "synthetic/ui_dark_theme_chart.png",
+    "synthetic/rgb_cmy_color_bars.png"
+  ],
+  "real_files": [],
+  "real_sanity_files": [],
+  "derived_files": [],
+  "items": [
+    {
+      "name": "01_grey_ramp",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "neutral_cast",
+        "banding"
+      ],
+      "failure_modes": [
+        "neutral_cast",
+        "banding"
+      ],
+      "expected_observation": "Grey ramp remains neutral and smooth.",
+      "expected_artifact_if_fail": "Large-area ramp shows tinting or visible contouring.",
+      "recommended_wa_sel": [
+        0,
+        32,
+        64,
+        96,
+        127
+      ],
+      "suggested_metrics": [
+        "channel_delta_mean",
+        "local_luma_jump_max"
+      ],
+      "pass_hint": "Look for a smooth grey-only ramp at warm and cool extremes.",
+      "notes": "",
+      "path": "synthetic/01_grey_ramp.png"
+    },
+    {
+      "name": "09_grey_steps",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "neutral_cast",
+        "node_discontinuity"
+      ],
+      "failure_modes": [
+        "neutral_cast",
+        "node_discontinuity"
+      ],
+      "expected_observation": "Discrete grey steps remain neutral without abrupt jumps.",
+      "expected_artifact_if_fail": "Adjacent steps pick up tint or show uneven spacing.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "step_delta_uniformity"
+      ],
+      "pass_hint": "Each grey step should stay neutral and visually ordered.",
+      "notes": "",
+      "path": "synthetic/09_grey_steps.png"
+    },
+    {
+      "name": "10_luma_node_chart",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "node_discontinuity"
+      ],
+      "failure_modes": [
+        "node_discontinuity"
+      ],
+      "expected_observation": "Node-aligned greys should not show visible bin transitions.",
+      "expected_artifact_if_fail": "Exact node positions show visible output jumps.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "node_boundary_jump"
+      ],
+      "pass_hint": "Check for abrupt transitions at node-aligned patches.",
+      "notes": "",
+      "path": "synthetic/10_luma_node_chart.png"
+    },
+    {
+      "name": "11_ui_text_contrast",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "neutral_cast",
+        "ui_artifact"
+      ],
+      "failure_modes": [
+        "neutral_cast",
+        "ui_artifact"
+      ],
+      "expected_observation": "Light-theme UI blocks stay neutral and text edges remain clean.",
+      "expected_artifact_if_fail": "Cards or fine bars develop tint or color fringing.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "edge_chroma_spread"
+      ],
+      "pass_hint": "White and light-grey UI surfaces should stay neutral.",
+      "notes": "",
+      "path": "synthetic/11_ui_text_contrast.png"
+    },
+    {
+      "name": "near_black_steps",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "dark_instability",
+        "neutral_cast"
+      ],
+      "failure_modes": [
+        "dark_instability",
+        "neutral_cast"
+      ],
+      "expected_observation": "Near-black steps stay separable and neutral.",
+      "expected_artifact_if_fail": "Shadow steps merge together or show colored patches.",
+      "recommended_wa_sel": [
+        0,
+        32,
+        64,
+        96,
+        127
+      ],
+      "suggested_metrics": [
+        "shadow_step_separation",
+        "channel_delta_mean"
+      ],
+      "pass_hint": "Dark steps should remain distinct and neutral at both extremes.",
+      "notes": "",
+      "path": "synthetic/near_black_steps.png"
+    },
+    {
+      "name": "near_white_steps",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "highlight_shift",
+        "neutral_cast"
+      ],
+      "failure_modes": [
+        "highlight_shift",
+        "neutral_cast"
+      ],
+      "expected_observation": "Near-white steps stay neutral before clipping.",
+      "expected_artifact_if_fail": "Upper steps compress suddenly or drift pink/blue/yellow.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "highlight_step_separation"
+      ],
+      "pass_hint": "Near-white patches should stay separated until clipping.",
+      "notes": "",
+      "path": "synthetic/near_white_steps.png"
+    },
+    {
+      "name": "ui_dark_theme_chart",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "dark_instability",
+        "ui_artifact"
+      ],
+      "failure_modes": [
+        "dark_instability",
+        "ui_artifact"
+      ],
+      "expected_observation": "Dark-theme UI layers remain stable without color cast.",
+      "expected_artifact_if_fail": "Dark panels separate poorly or pick up colored haze.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "shadow_panel_contrast"
+      ],
+      "pass_hint": "Dark layered panels should remain neutral and legible.",
+      "notes": "",
+      "path": "synthetic/ui_dark_theme_chart.png"
+    },
+    {
+      "name": "rgb_cmy_color_bars",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "color_side_effect_set",
+      "priority": "P1",
+      "inspection_priority": "P1",
+      "visual_risk": [
+        "hue_shift"
+      ],
+      "failure_modes": [
+        "hue_shift"
+      ],
+      "expected_observation": "Primary and secondary bars should preserve their hue families.",
+      "expected_artifact_if_fail": "Bars skew toward adjacent families or clip unevenly.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "bar_channel_ratio"
+      ],
+      "pass_hint": "Each bar should stay within its hue family after adjustment.",
+      "notes": "",
+      "path": "synthetic/rgb_cmy_color_bars.png"
+    }
+  ]
+}

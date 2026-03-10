@@ -1,0 +1,647 @@
+{
+  "profile": "core_visual",
+  "synthetic_files": [
+    "synthetic/01_grey_ramp.png",
+    "synthetic/09_grey_steps.png",
+    "synthetic/10_luma_node_chart.png",
+    "synthetic/bin_boundary_triplet_chart.png",
+    "synthetic/11_ui_text_contrast.png",
+    "synthetic/12_specular_clip_chart.png",
+    "synthetic/near_black_steps.png",
+    "synthetic/near_white_steps.png",
+    "synthetic/ui_dark_theme_chart.png",
+    "synthetic/two_axis_neutral_gradient.png",
+    "synthetic/iso_gray_18_70_pair.png",
+    "synthetic/midtone_neutral_texture.png",
+    "synthetic/warm_cool_split_field.png",
+    "synthetic/shadow_with_colored_highlight.png",
+    "synthetic/02_color_checker.png",
+    "synthetic/04_saturation_gradient.png",
+    "synthetic/06_skin_tones.png",
+    "synthetic/13_mixed_illumination_chart.png",
+    "synthetic/rgb_cmy_color_bars.png",
+    "synthetic/saturation_threshold_ladder.png",
+    "synthetic/skin_tone_luma_strip.png"
+  ],
+  "real_files": [],
+  "real_sanity_files": [],
+  "derived_files": [],
+  "items": [
+    {
+      "name": "01_grey_ramp",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "neutral_cast",
+        "banding"
+      ],
+      "failure_modes": [
+        "neutral_cast",
+        "banding"
+      ],
+      "expected_observation": "Grey ramp remains neutral and smooth.",
+      "expected_artifact_if_fail": "Large-area ramp shows tinting or visible contouring.",
+      "recommended_wa_sel": [
+        0,
+        32,
+        64,
+        96,
+        127
+      ],
+      "suggested_metrics": [
+        "channel_delta_mean",
+        "local_luma_jump_max"
+      ],
+      "pass_hint": "Look for a smooth grey-only ramp at warm and cool extremes.",
+      "notes": "",
+      "path": "synthetic/01_grey_ramp.png"
+    },
+    {
+      "name": "09_grey_steps",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "neutral_cast",
+        "node_discontinuity"
+      ],
+      "failure_modes": [
+        "neutral_cast",
+        "node_discontinuity"
+      ],
+      "expected_observation": "Discrete grey steps remain neutral without abrupt jumps.",
+      "expected_artifact_if_fail": "Adjacent steps pick up tint or show uneven spacing.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "step_delta_uniformity"
+      ],
+      "pass_hint": "Each grey step should stay neutral and visually ordered.",
+      "notes": "",
+      "path": "synthetic/09_grey_steps.png"
+    },
+    {
+      "name": "10_luma_node_chart",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "node_discontinuity"
+      ],
+      "failure_modes": [
+        "node_discontinuity"
+      ],
+      "expected_observation": "Node-aligned greys should not show visible bin transitions.",
+      "expected_artifact_if_fail": "Exact node positions show visible output jumps.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "node_boundary_jump"
+      ],
+      "pass_hint": "Check for abrupt transitions at node-aligned patches.",
+      "notes": "",
+      "path": "synthetic/10_luma_node_chart.png"
+    },
+    {
+      "name": "bin_boundary_triplet_chart",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "luma_node_discontinuity",
+        "quantization_jump"
+      ],
+      "failure_modes": [
+        "luma_node_discontinuity",
+        "quantization_jump"
+      ],
+      "expected_observation": "Triplets around each node vary smoothly across n-1, n, and n+1.",
+      "expected_artifact_if_fail": "One patch in a triplet shifts more than its neighbors.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "boundary_triplet_delta"
+      ],
+      "pass_hint": "Inspect each triplet for monotonic, near-equal transitions.",
+      "notes": "",
+      "path": "synthetic/bin_boundary_triplet_chart.png"
+    },
+    {
+      "name": "11_ui_text_contrast",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "neutral_cast",
+        "ui_artifact"
+      ],
+      "failure_modes": [
+        "neutral_cast",
+        "ui_artifact"
+      ],
+      "expected_observation": "Light-theme UI blocks stay neutral and text edges remain clean.",
+      "expected_artifact_if_fail": "Cards or fine bars develop tint or color fringing.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "edge_chroma_spread"
+      ],
+      "pass_hint": "White and light-grey UI surfaces should stay neutral.",
+      "notes": "",
+      "path": "synthetic/11_ui_text_contrast.png"
+    },
+    {
+      "name": "12_specular_clip_chart",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "highlight_shift"
+      ],
+      "failure_modes": [
+        "highlight_shift"
+      ],
+      "expected_observation": "Bright highlights stay stable without obvious tinting near clip.",
+      "expected_artifact_if_fail": "Near-clip blobs shift hue or clip unevenly by channel.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "highlight_channel_clip_rate"
+      ],
+      "pass_hint": "Bright blobs should brighten without picking up obvious color.",
+      "notes": "",
+      "path": "synthetic/12_specular_clip_chart.png"
+    },
+    {
+      "name": "near_black_steps",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "dark_instability",
+        "neutral_cast"
+      ],
+      "failure_modes": [
+        "dark_instability",
+        "neutral_cast"
+      ],
+      "expected_observation": "Near-black steps stay separable and neutral.",
+      "expected_artifact_if_fail": "Shadow steps merge together or show colored patches.",
+      "recommended_wa_sel": [
+        0,
+        32,
+        64,
+        96,
+        127
+      ],
+      "suggested_metrics": [
+        "shadow_step_separation",
+        "channel_delta_mean"
+      ],
+      "pass_hint": "Dark steps should remain distinct and neutral at both extremes.",
+      "notes": "",
+      "path": "synthetic/near_black_steps.png"
+    },
+    {
+      "name": "near_white_steps",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "highlight_shift",
+        "neutral_cast"
+      ],
+      "failure_modes": [
+        "highlight_shift",
+        "neutral_cast"
+      ],
+      "expected_observation": "Near-white steps stay neutral before clipping.",
+      "expected_artifact_if_fail": "Upper steps compress suddenly or drift pink/blue/yellow.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "highlight_step_separation"
+      ],
+      "pass_hint": "Near-white patches should stay separated until clipping.",
+      "notes": "",
+      "path": "synthetic/near_white_steps.png"
+    },
+    {
+      "name": "ui_dark_theme_chart",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "dark_instability",
+        "ui_artifact"
+      ],
+      "failure_modes": [
+        "dark_instability",
+        "ui_artifact"
+      ],
+      "expected_observation": "Dark-theme UI layers remain stable without color cast.",
+      "expected_artifact_if_fail": "Dark panels separate poorly or pick up colored haze.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "shadow_panel_contrast"
+      ],
+      "pass_hint": "Dark layered panels should remain neutral and legible.",
+      "notes": "",
+      "path": "synthetic/ui_dark_theme_chart.png"
+    },
+    {
+      "name": "two_axis_neutral_gradient",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "banding",
+        "area_nonuniformity",
+        "neutral_cast"
+      ],
+      "failure_modes": [
+        "banding",
+        "area_nonuniformity",
+        "neutral_cast"
+      ],
+      "expected_observation": "The 2D neutral gradient remains smooth and achromatic.",
+      "expected_artifact_if_fail": "Contours or tinted regions appear across the field.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "local_luma_jump_max",
+        "channel_delta_mean"
+      ],
+      "pass_hint": "Scan the whole field for stripes, blotches, or color drift.",
+      "notes": "",
+      "path": "synthetic/two_axis_neutral_gradient.png"
+    },
+    {
+      "name": "iso_gray_18_70_pair",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "luma_dependent_neutral_drift",
+        "neutral_cast"
+      ],
+      "failure_modes": [
+        "luma_dependent_neutral_drift",
+        "neutral_cast"
+      ],
+      "expected_observation": "Low and high neutral blocks drift consistently without hue skew.",
+      "expected_artifact_if_fail": "Darker and brighter greys shift in different directions.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "paired_grey_channel_delta"
+      ],
+      "pass_hint": "Compare low and high greys side by side for directionally similar shift.",
+      "notes": "",
+      "path": "synthetic/iso_gray_18_70_pair.png"
+    },
+    {
+      "name": "midtone_neutral_texture",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "ui_artifact",
+        "detail_collapse",
+        "neutral_cast"
+      ],
+      "failure_modes": [
+        "ui_artifact",
+        "detail_collapse",
+        "neutral_cast"
+      ],
+      "expected_observation": "Fine neutral details stay crisp without colored edges.",
+      "expected_artifact_if_fail": "Thin lines soften or show colored fringing.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "edge_chroma_spread",
+        "texture_contrast_retention"
+      ],
+      "pass_hint": "Inspect fine lines and boxes for colored halos or contrast loss.",
+      "notes": "",
+      "path": "synthetic/midtone_neutral_texture.png"
+    },
+    {
+      "name": "warm_cool_split_field",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "mixed_illumination_transition",
+        "neutral_cast"
+      ],
+      "failure_modes": [
+        "mixed_illumination_transition",
+        "neutral_cast"
+      ],
+      "expected_observation": "The warm-to-cool field transitions smoothly through neutral references.",
+      "expected_artifact_if_fail": "Transition boundary looks abrupt or neutral references skew differently.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "transition_smoothness"
+      ],
+      "pass_hint": "Pay attention to the center transition and neutral blocks.",
+      "notes": "",
+      "path": "synthetic/warm_cool_split_field.png"
+    },
+    {
+      "name": "shadow_with_colored_highlight",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "neutral_stability_core",
+      "priority": "P0",
+      "inspection_priority": "P0",
+      "visual_risk": [
+        "near_white_drift",
+        "near_black_instability",
+        "highlight_halo_or_tint"
+      ],
+      "failure_modes": [
+        "near_white_drift",
+        "near_black_instability",
+        "highlight_halo_or_tint"
+      ],
+      "expected_observation": "Dark background remains stable while bright highlights keep their families.",
+      "expected_artifact_if_fail": "Highlights bloom into tinted halos or shadows pick up cast.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "highlight_channel_clip_rate",
+        "shadow_channel_delta"
+      ],
+      "pass_hint": "Check both the highlight cores and the surrounding dark field.",
+      "notes": "",
+      "path": "synthetic/shadow_with_colored_highlight.png"
+    },
+    {
+      "name": "02_color_checker",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "color_side_effect_set",
+      "priority": "P1",
+      "inspection_priority": "P1",
+      "visual_risk": [
+        "hue_shift"
+      ],
+      "failure_modes": [
+        "hue_shift"
+      ],
+      "expected_observation": "Reference color patches should not drift excessively.",
+      "expected_artifact_if_fail": "Multiple hue families rotate or compress together.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "patch_delta_rgb"
+      ],
+      "pass_hint": "Use as a broad color sanity check, not the main release gate.",
+      "notes": "",
+      "path": "synthetic/02_color_checker.png"
+    },
+    {
+      "name": "04_saturation_gradient",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "color_side_effect_set",
+      "priority": "P1",
+      "inspection_priority": "P1",
+      "visual_risk": [
+        "hue_shift"
+      ],
+      "failure_modes": [
+        "hue_shift"
+      ],
+      "expected_observation": "Saturation sweeps should stay smooth without abrupt hue drift.",
+      "expected_artifact_if_fail": "A hue strip bends or changes direction across saturation.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "hue_sweep_smoothness"
+      ],
+      "pass_hint": "Look for abrupt hue turns across each saturation ramp.",
+      "notes": "",
+      "path": "synthetic/04_saturation_gradient.png"
+    },
+    {
+      "name": "06_skin_tones",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "color_side_effect_set",
+      "priority": "P1",
+      "inspection_priority": "P1",
+      "visual_risk": [
+        "hue_shift"
+      ],
+      "failure_modes": [
+        "hue_shift"
+      ],
+      "expected_observation": "Skin-tone patches should stay plausible and ordered.",
+      "expected_artifact_if_fail": "One complexion family becomes grey, pink, or green relative to neighbors.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "skin_patch_delta_rgb"
+      ],
+      "pass_hint": "Check whether complexion ordering still looks plausible.",
+      "notes": "",
+      "path": "synthetic/06_skin_tones.png"
+    },
+    {
+      "name": "13_mixed_illumination_chart",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "color_side_effect_set",
+      "priority": "P1",
+      "inspection_priority": "P1",
+      "visual_risk": [
+        "hue_shift",
+        "neutral_cast"
+      ],
+      "failure_modes": [
+        "hue_shift",
+        "neutral_cast"
+      ],
+      "expected_observation": "Warm-to-cool transitions should remain smooth.",
+      "expected_artifact_if_fail": "Objects crossing the field shift in inconsistent ways.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "transition_smoothness"
+      ],
+      "pass_hint": "Inspect transition smoothness, especially around the neutral object.",
+      "notes": "",
+      "path": "synthetic/13_mixed_illumination_chart.png"
+    },
+    {
+      "name": "rgb_cmy_color_bars",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "color_side_effect_set",
+      "priority": "P1",
+      "inspection_priority": "P1",
+      "visual_risk": [
+        "hue_shift"
+      ],
+      "failure_modes": [
+        "hue_shift"
+      ],
+      "expected_observation": "Primary and secondary bars should preserve their hue families.",
+      "expected_artifact_if_fail": "Bars skew toward adjacent families or clip unevenly.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "bar_channel_ratio"
+      ],
+      "pass_hint": "Each bar should stay within its hue family after adjustment.",
+      "notes": "",
+      "path": "synthetic/rgb_cmy_color_bars.png"
+    },
+    {
+      "name": "saturation_threshold_ladder",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "color_side_effect_set",
+      "priority": "P1",
+      "inspection_priority": "P1",
+      "visual_risk": [
+        "saturation_transition_artifact",
+        "hue_shift",
+        "over_protection",
+        "under_protection"
+      ],
+      "failure_modes": [
+        "saturation_transition_artifact",
+        "hue_shift",
+        "over_protection",
+        "under_protection"
+      ],
+      "expected_observation": "Saturation increases smoothly through the protection threshold region.",
+      "expected_artifact_if_fail": "The ladder shows sudden hue or intensity changes around mid saturation.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "sat_transition_smoothness"
+      ],
+      "pass_hint": "Look for the point where protection starts to kick in too abruptly.",
+      "notes": "",
+      "path": "synthetic/saturation_threshold_ladder.png"
+    },
+    {
+      "name": "skin_tone_luma_strip",
+      "source": "synthetic",
+      "pass_mode": "visual_only",
+      "dataset_role": "color_side_effect_set",
+      "priority": "P1",
+      "inspection_priority": "P1",
+      "visual_risk": [
+        "skin_hue_shift",
+        "skin_luma_dependency"
+      ],
+      "failure_modes": [
+        "skin_hue_shift",
+        "skin_luma_dependency"
+      ],
+      "expected_observation": "Skin-tone families remain plausible across luminance levels.",
+      "expected_artifact_if_fail": "Darker or brighter variants of the same family diverge in hue.",
+      "recommended_wa_sel": [
+        0,
+        64,
+        127
+      ],
+      "suggested_metrics": [
+        "skin_luma_family_delta"
+      ],
+      "pass_hint": "Compare columns within the same skin family before comparing different families.",
+      "notes": "",
+      "path": "synthetic/skin_tone_luma_strip.png"
+    }
+  ]
+}
