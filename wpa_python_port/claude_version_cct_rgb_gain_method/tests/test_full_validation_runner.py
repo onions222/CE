@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 
-def test_full_validation_runner_report_mentions_visual_verdict_sections(tmp_path: Path) -> None:
+def test_full_validation_runner_report_renders_visual_role_sections(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1]
     report_path = tmp_path / "validation_report.md"
     cmd = [
@@ -23,6 +23,8 @@ def test_full_validation_runner_report_mentions_visual_verdict_sections(tmp_path
 
     assert report_path.exists(), proc.stderr
     text = report_path.read_text(encoding="utf-8")
-    assert "P0 stability verdict" in text
-    assert "P1 side-effect verdict" in text
-    assert "Real-world sanity verdict" in text
+    assert "P0 Neutral Stability" in text
+    assert "P1 Color Side Effects" in text
+    assert "P2 Real-World Sanity" in text
+    assert "Recommended WA_SEL" in text
+    assert "Failure-Mode Coverage" in text

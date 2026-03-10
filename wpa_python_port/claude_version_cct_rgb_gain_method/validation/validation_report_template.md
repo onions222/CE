@@ -32,9 +32,7 @@
 
 ## Visual Validation
 
-- P0 stability verdict: `TBD`
-- P1 side-effect verdict: `TBD`
-- Real-world sanity verdict: `TBD`
+{{visual_sections}}
 
 ## Final Verdict
 

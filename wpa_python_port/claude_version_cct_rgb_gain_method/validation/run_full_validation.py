@@ -6,6 +6,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from collections import Counter
 
 import numpy as np
 
@@ -14,6 +15,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from validation.linear_interp_basis.evaluate_anchor_interp import evaluate_anchor_interp_error
+from validation.dataset_profiles import get_profile_spec
+from scripts.download_test_images import REAL_WORLD_IMAGE_GROUPS
 from wpa import WPAConfig, wpa_process_rgb_uint8
 from wpa_fixed import FixedWPAConfig, wpa_fixed_process
 from wpa_fixed.hw_stats import collect_hw_stats
@@ -24,6 +27,16 @@ class CheckResult:
     name: str
     passed: bool
     detail: str
+
+
+REAL_WORLD_GROUP_FOCUS = {
+    "public_portrait": ["skin_plausibility", "neutral_cast"],
+    "public_hdr_window": ["hdr_transition", "near_white_drift"],
+    "public_night_neon": ["mixed_colored_light", "highlight_shift"],
+    "public_ui_workspace": ["ui_neutrality", "edge_artifact"],
+    "research_mixed_light": ["mixed_illumination_transition", "neutral_cast"],
+    "research_outdoor_sanity": ["outdoor_sanity", "shadow_highlight_balance"],
+}
 
 
 def run_pytest() -> tuple[bool, str]:
@@ -174,6 +187,77 @@ def _format_checks_table(checks: list[CheckResult]) -> str:
     return "\n".join(lines)
 
 
+def _build_visual_role_table(items: list[dict]) -> str:
+    lines = [
+        "| Item | Failure Modes | Recommended WA_SEL | Pass Hint |",
+        "|---|---|---|---|",
+    ]
+    for item in items:
+        modes = ", ".join(item.get("failure_modes", item.get("visual_risk", [])))
+        wa_values = ", ".join(str(v) for v in item.get("recommended_wa_sel", []))
+        lines.append(
+            f"| {item['name']} | {modes} | {wa_values or '-'} | {item.get('pass_hint', item.get('expected_observation', '-'))} |"
+        )
+    return "\n".join(lines)
+
+
+def _build_real_sanity_table(groups: list[str]) -> str:
+    lines = [
+        "| Group | Assets | Failure Modes | Recommended WA_SEL |",
+        "|---|---|---|---|",
+    ]
+    for group in groups:
+        entries = REAL_WORLD_IMAGE_GROUPS.get(group, [])
+        asset_names = ", ".join(entry["filename"] for entry in entries) or "-"
+        modes = ", ".join(REAL_WORLD_GROUP_FOCUS.get(group, ["real_world_sanity"]))
+        lines.append(f"| {group} | {asset_names} | {modes} | 0, 64, 127 |")
+    return "\n".join(lines)
+
+
+def _format_failure_mode_coverage(items: list[dict]) -> str:
+    counter: Counter[str] = Counter()
+    for item in items:
+        counter.update(item.get("failure_modes", item.get("visual_risk", [])))
+    if not counter:
+        return "- none"
+    return ", ".join(f"`{name}`×{count}" for name, count in sorted(counter.items()))
+
+
+def _render_visual_sections(profile_name: str) -> str:
+    spec = get_profile_spec(profile_name)
+    items = spec.get("items", [])
+    p0_items = [item for item in items if item.get("dataset_role") == "neutral_stability_core"]
+    p1_items = [item for item in items if item.get("dataset_role") == "color_side_effect_set"]
+    p2_groups = spec.get("real_sanity", [])
+
+    sections = [
+        "## P0 Neutral Stability",
+        "",
+        f"Failure-Mode Coverage: {_format_failure_mode_coverage(p0_items)}",
+        "",
+        "Recommended WA_SEL: `0, 64, 127` plus any item-specific extremes.",
+        "",
+        _build_visual_role_table(p0_items),
+        "",
+        "## P1 Color Side Effects",
+        "",
+        f"Failure-Mode Coverage: {_format_failure_mode_coverage(p1_items)}",
+        "",
+        "Recommended WA_SEL: `0, 64, 127` for hue-family comparison.",
+        "",
+        _build_visual_role_table(p1_items),
+        "",
+        "## P2 Real-World Sanity",
+        "",
+        "Failure-Mode Coverage: mixed-light, portrait plausibility, HDR transition, UI neutrality.",
+        "",
+        "Recommended WA_SEL: `0, 64, 127`.",
+        "",
+        _build_real_sanity_table(p2_groups),
+    ]
+    return "\n".join(sections)
+
+
 def _render_report(
     template_path: Path,
     *,
@@ -183,6 +267,7 @@ def _render_report(
     hw_table: str,
     consistency_table: str,
     check_table: str,
+    visual_sections: str,
     verdict: str,
 ) -> str:
     text = template_path.read_text(encoding="utf-8")
@@ -193,6 +278,7 @@ def _render_report(
         "{{hw_table}}": hw_table,
         "{{consistency_table}}": consistency_table,
         "{{check_table}}": check_table,
+        "{{visual_sections}}": visual_sections,
         "{{verdict}}": verdict,
     }
     for key, value in replacements.items():
@@ -207,6 +293,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--width", type=int, default=128)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--skip-pytest", action="store_true")
+    parser.add_argument("--visual-profile", default="release_visual")
     args = parser.parse_args(argv)
 
     pytest_ok = True
@@ -250,6 +337,7 @@ def main(argv: list[str] | None = None) -> int:
         hw_table=hw_table,
         consistency_table=f"{_format_consistency_table(cons8)}\n\n{_format_consistency_table(cons10)}",
         check_table=_format_checks_table(checks),
+        visual_sections=_render_visual_sections(args.visual_profile),
         verdict=verdict,
     )
 
