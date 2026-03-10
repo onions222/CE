@@ -325,6 +325,144 @@ def gen_mixed_illumination_chart(h: int = 256, w: int = 512) -> np.ndarray:
     return np.clip(np.round(out * 255.0), 0, 255).astype(np.uint8)
 
 
+def gen_two_axis_neutral_gradient(h: int = 256, w: int = 512) -> np.ndarray:
+    """Large-area neutral gradient for banding and tint checks."""
+    x = np.linspace(0.0, 1.0, w, dtype=np.float32)
+    y = np.linspace(0.0, 1.0, h, dtype=np.float32)
+    plane = 255.0 * (0.1 + 0.75 * x[None, :] + 0.15 * y[:, None])
+    plane = np.clip(plane, 0, 255).astype(np.uint8)
+    return np.stack([plane, plane, plane], axis=-1)
+
+
+def gen_bin_boundary_triplet_chart(patch_size: int = 36, gap: int = 10) -> np.ndarray:
+    """Triplets around each luma node to expose interpolation jumps."""
+    nodes = [15, 31, 47, 63, 95, 127, 159, 191, 223, 239, 247, 255]
+    values: list[int] = []
+    for idx, node in enumerate(nodes):
+        values.extend([max(node - 1, 0), node, min(node + 1, 255)])
+        if idx != len(nodes) - 1:
+            values.append(-1)
+
+    width = len(values) * patch_size
+    img = np.zeros((patch_size, width, 3), dtype=np.uint8)
+    for i, value in enumerate(values):
+        x0 = i * patch_size
+        x1 = x0 + patch_size
+        if value < 0:
+            img[:, x0:x1] = 18
+        else:
+            img[:, x0:x1] = value
+
+    if gap > 0:
+        for i, value in enumerate(values):
+            if value < 0:
+                x0 = i * patch_size
+                img[:, max(x0 - gap // 2, 0):min(x0 + gap // 2, width)] = 12
+    return img
+
+
+def gen_iso_gray_18_70_pair(h: int = 128, w: int = 512) -> np.ndarray:
+    """Paired low/mid and high neutral blocks for luminance-dependent drift checks."""
+    img = np.full((h, w, 3), 90, dtype=np.uint8)
+    img[:, :w // 4] = 46
+    img[:, w // 4:w // 2] = 46
+    img[:, w // 2:3 * w // 4] = 179
+    img[:, 3 * w // 4:] = 179
+    img[:, w // 4 - 6:w // 4 + 6] = 110
+    img[:, w // 2 - 6:w // 2 + 6] = 110
+    img[:, 3 * w // 4 - 6:3 * w // 4 + 6] = 110
+    return img
+
+
+def gen_midtone_neutral_texture(h: int = 256, w: int = 512) -> np.ndarray:
+    """Mid-grey texture field with fine neutral details."""
+    img = np.full((h, w, 3), 124, dtype=np.uint8)
+    for x in range(0, w, 24):
+        img[:, x:x + 2] = 132
+    for y in range(0, h, 24):
+        img[y:y + 2, :] = 132
+    img[48:208, 80:432] = 118
+    for y in range(68, 196, 14):
+        img[y:y + 2, 112:400] = 160
+    for x in range(120, 392, 20):
+        img[80:184, x:x + 1] = 145
+    return img
+
+
+def gen_saturation_threshold_ladder(h_per_hue: int = 40, w_per_step: int = 28) -> np.ndarray:
+    """Hue strips with gradually increasing saturation near protection thresholds."""
+    base_grey = np.array([128, 128, 128], dtype=np.float32)
+    hues = np.array(
+        [
+            [220, 70, 70],
+            [220, 180, 70],
+            [70, 180, 70],
+            [70, 170, 220],
+            [90, 90, 220],
+            [190, 90, 200],
+        ],
+        dtype=np.float32,
+    )
+    steps = np.linspace(0.0, 1.0, 10, dtype=np.float32)
+    img = np.zeros((len(hues) * h_per_hue, len(steps) * w_per_step, 3), dtype=np.uint8)
+    for row, hue in enumerate(hues):
+        for col, t in enumerate(steps):
+            patch = np.round(base_grey * (1.0 - t) + hue * t).astype(np.uint8)
+            y0 = row * h_per_hue
+            x0 = col * w_per_step
+            img[y0:y0 + h_per_hue, x0:x0 + w_per_step] = patch
+    return img
+
+
+def gen_skin_tone_luma_strip(patch_size: int = 40) -> np.ndarray:
+    """Skin-tone families repeated across luminance levels."""
+    bases = np.array(
+        [
+            [240, 200, 166],
+            [220, 175, 140],
+            [185, 140, 105],
+            [140, 100, 70],
+        ],
+        dtype=np.float32,
+    )
+    scales = np.array([0.55, 0.75, 0.95, 1.0], dtype=np.float32)
+    img = np.zeros((len(bases) * patch_size, len(scales) * patch_size, 3), dtype=np.uint8)
+    for row, base in enumerate(bases):
+        for col, scale in enumerate(scales):
+            patch = np.clip(np.round(base * scale), 0, 255).astype(np.uint8)
+            y0 = row * patch_size
+            x0 = col * patch_size
+            img[y0:y0 + patch_size, x0:x0 + patch_size] = patch
+    return img
+
+
+def gen_warm_cool_split_field(h: int = 256, w: int = 512) -> np.ndarray:
+    """Warm-left, cool-right field with neutral reference blocks."""
+    x = np.linspace(0.0, 1.0, w, dtype=np.float32)
+    warm = np.array([255, 220, 180], dtype=np.float32) / 255.0
+    cool = np.array([190, 220, 255], dtype=np.float32) / 255.0
+    illum = warm[None, None, :] * (1.0 - x[None, :, None]) + cool[None, None, :] * x[None, :, None]
+    scene = np.full((h, w, 3), 0.62, dtype=np.float32)
+    scene[48:208, 96:192] = 0.76
+    scene[48:208, 224:320] = 0.76
+    scene[48:208, 352:448] = 0.76
+    scene[96:160, 224:320] = np.array([0.72, 0.58, 0.48], dtype=np.float32)
+    out = scene * illum
+    return np.clip(np.round(out * 255.0), 0, 255).astype(np.uint8)
+
+
+def gen_shadow_with_colored_highlight(h: int = 256, w: int = 512) -> np.ndarray:
+    """Dark field with neutral and colored highlights near clip."""
+    img = np.full((h, w, 3), [20, 20, 22], dtype=np.uint8)
+    img[48:208, 60:150] = [250, 248, 246]
+    img[48:208, 210:300] = [252, 235, 214]
+    img[48:208, 360:450] = [226, 240, 252]
+    img[86:170, 88:122] = [255, 255, 255]
+    img[86:170, 238:272] = [255, 245, 228]
+    img[86:170, 388:422] = [240, 248, 255]
+    return img
+
+
 # ── main ────────────────────────────────────────────────────────────────
 
 GENERATORS = {
@@ -345,6 +483,14 @@ GENERATORS = {
     "near_white_steps":      gen_near_white_steps,
     "ui_dark_theme_chart":   gen_ui_dark_theme_chart,
     "rgb_cmy_color_bars":    gen_rgb_cmy_color_bars,
+    "two_axis_neutral_gradient": gen_two_axis_neutral_gradient,
+    "bin_boundary_triplet_chart": gen_bin_boundary_triplet_chart,
+    "iso_gray_18_70_pair":   gen_iso_gray_18_70_pair,
+    "midtone_neutral_texture": gen_midtone_neutral_texture,
+    "saturation_threshold_ladder": gen_saturation_threshold_ladder,
+    "skin_tone_luma_strip":  gen_skin_tone_luma_strip,
+    "warm_cool_split_field": gen_warm_cool_split_field,
+    "shadow_with_colored_highlight": gen_shadow_with_colored_highlight,
 }
 
 
