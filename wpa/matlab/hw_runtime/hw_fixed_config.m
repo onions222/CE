@@ -5,6 +5,17 @@ function cfg = hw_fixed_config(varargin)
 % 1. 全部定点量按 raw code 整数码值理解；
 % 2. 真实数值 = raw_code / scale_factor；
 % 3. 常驻数据只保留 3 个 anchor gain、12 个 luma node、12 点 atten 与 tail 表。
+%
+% 默认位宽口径：
+% - coeff_frac_bits = 8，对应 UQ1.8，增益 raw code 位宽 = 9 bit
+% - frac_bits = 8，对应 Q0.8，像素 raw code 位宽 = 9 bit
+% - mul_bits = 18 bit，对应像素码值与增益码值乘法累加位宽
+%
+% 常驻表说明：
+% - wa_base_gain_lut_fixed[3][3]：只保存 warm / neutral / cool 三个 anchor
+% - atten_q_lut_fixed[12]：12 个亮度节点的衰减 raw code
+% - luma_nodes[12]：亮度节点 [15, 31, ..., 255]
+% - warm/cool highlight tail：高亮末端单独修正表
 
 cfg = struct( ...
     'frac_bits', 8, ...
@@ -47,6 +58,9 @@ cfg.ONE = 2 ^ cfg.frac_bits;
 cfg.HALF = 2 ^ (cfg.frac_bits - 1);
 cfg.COEFF_ONE = 2 ^ cfg.coeff_frac_bits;
 cfg.COEFF_HALF = 2 ^ (cfg.coeff_frac_bits - 1);
+% 位宽换算：
+% - ONE / HALF        是 Q0.frac_bits 域的 scale factor 与舍入常量
+% - COEFF_ONE / HALF  是 UQ1.coeff_frac_bits 域的 scale factor 与舍入常量
 cfg.pixel_bits = cfg.frac_bits + 1;
 cfg.coeff_bits = cfg.coeff_frac_bits + 1;
 cfg.mul_bits = cfg.pixel_bits + cfg.coeff_bits;
@@ -112,10 +126,15 @@ end
 end
 
 function table = local_build_wa_base_gain_lut_fixed(cfg)
+% 只取完整 128 档浮点 CCT gain 中的 3 个 anchor：
+% - index 1   -> warm
+% - index 65  -> neutral
+% - index 128 -> cool
 one = cfg.COEFF_ONE;
 lut = local_build_cct_gain_lut(cfg);
 anchors = lut([1 65 128], :);
 gain_q = round(anchors * one);
+% table 的每个元素都是增益 raw code，位宽按 coeff_bits 理解。
 table = min(max(gain_q, 0), 65535);
 table(2, :) = one;
 end
@@ -214,30 +233,35 @@ end
 end
 
 function caps = local_build_warm_highlight_red_caps_fixed(cfg)
+% 高亮末 4 个节点单独设置 R cap，避免 warm 端高亮区过早裁剪后留下脏黄尾巴。
 one = cfg.COEFF_ONE;
 caps = repmat(one, numel(cfg.luma_nodes), 1);
 caps(end-3:end) = round([1.30; 1.22; 1.16; 1.10] * one);
 end
 
 function caps = local_build_warm_highlight_green_caps_fixed(cfg)
+% 高亮末 4 个节点单独设置 G cap，抑制 warm 端偏黄绿。
 one = cfg.COEFF_ONE;
 caps = repmat(one, numel(cfg.luma_nodes), 1);
 caps(end-3:end) = round([0.94; 0.94; 0.94; 0.94] * one);
 end
 
 function caps = local_build_warm_highlight_blue_floors_fixed(cfg)
+% 高亮末 4 个节点单独设置 B floor，让最亮区回到低色度暖白。
 one = cfg.COEFF_ONE;
 caps = repmat(one, numel(cfg.luma_nodes), 1);
 caps(end-3:end) = round([0.80; 0.84; 0.87; 0.90] * one);
 end
 
 function caps = local_build_cool_highlight_green_caps_fixed(cfg)
+% cool 端高亮末 4 个节点单独设置 G cap，防止蓝端往 cyan 方向走。
 one = cfg.COEFF_ONE;
 caps = repmat(one, numel(cfg.luma_nodes), 1);
 caps(end-3:end) = round([0.98; 0.975; 0.97; 0.965] * one);
 end
 
 function caps = local_build_cool_highlight_blue_caps_fixed(cfg)
+% cool 端高亮末 4 个节点单独设置 B cap，目标是低色度淡蓝，不是高饱和 cyan。
 one = cfg.COEFF_ONE;
 caps = repmat(one, numel(cfg.luma_nodes), 1);
 caps(end-3:end) = round([1.15; 1.12; 1.08; 1.06] * one);

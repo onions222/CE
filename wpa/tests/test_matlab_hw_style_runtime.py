@@ -175,3 +175,17 @@ def test_matlab_hw_runtime_is_independent_from_legacy_wpa_fixed_names() -> None:
         text = _read(rel)
         assert "wpa_fixed_" not in text, rel
         assert "hw_fixed_" in text or "run_hw_fixed" in text, rel
+
+
+def test_matlab_hw_runtime_core_files_include_chinese_bit_width_comments() -> None:
+    for rel in [
+        "matlab/hw_runtime/hw_fixed_config.m",
+        "matlab/hw_runtime/hw_fixed_runtime_bin_gains.m",
+        "matlab/hw_runtime/hw_fixed_process_image.m",
+        "matlab/hw_runtime/run_hw_fixed_folder.m",
+        "matlab/hw_runtime/run_hw_fixed_image.m",
+        "matlab/hw_runtime/validate_hw_fixed_against_python.m",
+    ]:
+        text = _read(rel)
+        assert "位宽" in text, rel
+        assert "raw code" in text, rel

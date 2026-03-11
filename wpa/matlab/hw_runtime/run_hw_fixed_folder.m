@@ -10,6 +10,11 @@
 % - 只常驻 12 luma nodes
 % - WA_SEL 更新时展开当前 runtime 12x3
 % - 只扫描 input_dir 当前目录，不递归子目录
+%
+% 默认位宽：
+% - coeff_frac_bits = 8，对应 UQ1.8，增益 raw code 位宽 = 9 bit
+% - frac_bits = 8，对应 Q0.8，像素 raw code 位宽 = 9 bit
+% - mul_bits = 18 bit，对应乘法累加位宽
 
 %% 用户配置区
 input_dir = 'test_images/synthetic';
@@ -47,6 +52,7 @@ files = local_collect_files(input_dir, file_patterns);
 fprintf('Processing folder: %s\n', input_dir);
 fprintf('Output folder    : %s\n', output_dir);
 fprintf('wa_sel=%d coeff_frac_bits=%d frac_bits=%d\n', cfg.wa_sel, cfg.coeff_frac_bits, cfg.frac_bits);
+fprintf('pixel_bits=%d coeff_bits=%d mul_bits=%d\n', cfg.pixel_bits, cfg.coeff_bits, cfg.mul_bits);
 
 for i = 1:numel(files)
     in_name = files(i).name;
@@ -68,6 +74,7 @@ end
 
 %% 本地辅助函数
 function files = local_collect_files(input_dir, patterns)
+% 收集当前目录下一层图像文件，不递归子目录。
 files = struct('name', {}, 'folder', {}, 'date', {}, 'bytes', {}, 'isdir', {}, 'datenum', {});
 seen = containers.Map('KeyType', 'char', 'ValueType', 'logical');
 

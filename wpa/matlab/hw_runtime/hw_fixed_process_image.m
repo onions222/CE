@@ -8,6 +8,13 @@ function out = hw_fixed_process_image(img, cfg)
 % - sat_delta_code  : 饱和度保护差值码值
 %
 % 这一路径只使用 3 anchor + 12 luma nodes + runtime 12x3 结构。
+% 运行顺序对应硬件理解：
+% 1. gamma 域输入先转线性域浮点
+% 2. 量化成 Q0.8 pixel raw code
+% 3. 计算 8bit 亮度代理 Y
+% 4. 用 Y 在 runtime 12x3 上做节点插值，得到 gain raw code
+% 5. 做 pixel_code * gain_code / COEFF_ONE
+% 6. 回到浮点线性域，再做 engamma 输出到 uint8
 
 if nargin < 2 || isempty(cfg)
     cfg = hw_fixed_config();
@@ -23,25 +30,32 @@ if ~cfg.wa_en || cfg.wa_sel == 64
 end
 
 linear_f = local_degamma(img, cfg.gamma_mode, cfg.gamma_power);
+% pixel_code 是像素内部 raw code。
+% 默认 frac_bits = 8，因此 1.0 <-> 256，位宽按 9 bit 理解。
 pixel_code = min(max(round(double(linear_f) * cfg.ONE), 0), cfg.ONE);
 
 if strcmp(char(cfg.luma_domain), 'gamma')
+    % gamma 域亮度代理直接基于输入 8bit RGB 计算。
     luma_u8 = local_luma_proxy_u8(img);
 else
     r_code = pixel_code(:, :, 1);
     g_code = pixel_code(:, :, 2);
     b_code = pixel_code(:, :, 3);
+    % luma_code 仍在 pixel raw code 域，位宽近似为 cfg.pixel_bits。
     luma_code = floor((r_code + 2 .* g_code + b_code) / 4);
     luma_u8 = min(floor((luma_code .* 255 + cfg.HALF) / (2 ^ cfg.frac_bits)), 255);
 end
 
 gain_table_codes = hw_fixed_runtime_bin_gains(cfg, cfg.wa_sel);
+% gain_code 是每像素插值得到的增益 raw code，位宽按 cfg.coeff_bits 理解。
 gain_code = local_interpolate_gains(luma_u8, gain_table_codes, cfg.luma_nodes, cfg.bin_interp, cfg.frac_bits);
 
+% mul_acc_code 是像素码值与增益码值的乘法累加结果，位宽按 cfg.mul_bits 理解。
 mul_acc_code = pixel_code .* gain_code + cfg.COEFF_HALF;
 adjusted_code = floor(mul_acc_code / (2 ^ cfg.coeff_frac_bits));
 
 if cfg.sat_en
+    % sat_weight_code 与 pixel_code 处于同一小数位域。
     sat_weight_code = local_sat_weight(img, cfg.sat_s0, cfg.sat_s1, cfg.frac_bits);
     sat_weight_code3 = repmat(sat_weight_code, [1, 1, 3]);
     sat_delta_code = adjusted_code - pixel_code;
@@ -103,6 +117,9 @@ end
 end
 
 function y = local_luma_proxy_u8(rgb_u8)
+% 亮度代理直接使用硬件友好的公式：
+% Y = floor((R + 2G + B) / 4)
+% 输出位宽固定为 8 bit。
 r = double(rgb_u8(:, :, 1));
 g = double(rgb_u8(:, :, 2));
 b = double(rgb_u8(:, :, 3));
@@ -144,18 +161,24 @@ for row = 1:h
 
         node_lo = nodes(idx_lo);
         node_hi = nodes(idx_hi);
+        % t_code 是节点间插值系数的 raw code，位宽约为 interp_bits + 1。
         span = max(node_hi - node_lo, 1);
         numer = (yc - node_lo) * (2 ^ interp_bits) + floor(span / 2);
         t_code = min(floor(numer / span), 2 ^ interp_bits);
 
         g_lo = gains_table(idx_lo, :);
         g_hi = gains_table(idx_hi, :);
+        % 对 12 个亮度节点之间的 gain 做逐像素线性插值。
         gain(row, col, :) = g_lo + floor((t_code .* (g_hi - g_lo) + half_interp) / (2 ^ interp_bits));
     end
 end
 end
 
 function w = local_sat_weight(rgb_u8, s0, s1, frac_bits)
+% 饱和度保护权重：
+% - w 的真实范围是 [0, 1]
+% - raw code 位宽按 pixel_bits 理解
+% - 当 sat_en = false 时，主路径不会进入这里
 r = double(rgb_u8(:, :, 1));
 g = double(rgb_u8(:, :, 2));
 b = double(rgb_u8(:, :, 3));
