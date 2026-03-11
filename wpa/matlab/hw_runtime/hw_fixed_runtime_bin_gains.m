@@ -1,13 +1,9 @@
-function gains = wpa_fixed_runtime_bin_gains(cfg, wa_sel)
-%WPA_FIXED_RUNTIME_BIN_GAINS 根据 WA_SEL 展开当前 12x3 增益码值表。
+function gains = hw_fixed_runtime_bin_gains(cfg, wa_sel)
+%HW_FIXED_RUNTIME_BIN_GAINS 由 WA_SEL 展开当前 runtime 12x3 增益表。
 %
-% 输出解释：
+% 输出：
 % - gains(i, c) 是 UQ1.coeff_frac_bits raw code
-% - 真实增益 = gain_code / COEFF_ONE
-% - 有效位宽 = cfg.coeff_bits
-%
-% 这里不做每像素插值，只做“控制量更新时”的 runtime bin 展开。
-% 这样更接近硬件：WA_SEL 改变时更新一次表，像素路径只做查表+插值。
+% - 真实增益 = gain_code / cfg.COEFF_ONE
 
 wa = min(max(round(wa_sel), 0), 127);
 one = cfg.COEFF_ONE;
@@ -15,29 +11,25 @@ base = local_runtime_base_gain(cfg, wa);
 atten_q = cfg.atten_q_lut_fixed(:);
 delta = base - one;
 gains = zeros(numel(atten_q), 3);
+
 for i = 1:numel(atten_q)
-    % 每个 bin 的展开公式：
-    % gain_code = one + round(atten_q * (base_code - one) / COEFF_ONE)
-    row = one + floor((atten_q(i) .* delta + cfg.COEFF_HALF) / (2 ^ cfg.coeff_frac_bits));
-    gains(i, :) = row;
+    gains(i, :) = one + floor((atten_q(i) .* delta + cfg.COEFF_HALF) / (2 ^ cfg.coeff_frac_bits));
 end
+
 if wa < 64
-    % warm 端高亮 tail：
-    % - R 用 cap 往白回收，避免高亮区过早 clip 后留下脏黄尾巴
-    % - G 保持轻微 cap，抑制黄绿感
-    % - B 用 floor 回拉，保证最高亮阶回到低色度暖白
     alpha_num = 64 - wa;
+
     red_targets = cfg.warm_highlight_red_caps_fixed(:);
     red_delta = red_targets - one;
     red_caps = one + floor((alpha_num .* red_delta + 32) / 64);
     red_idx = red_targets > one;
     gains(red_idx, 1) = min(gains(red_idx, 1), red_caps(red_idx));
 
-    target_caps = cfg.warm_highlight_green_caps_fixed(:);
-    delta_caps = one - target_caps;
-    caps = one - floor((alpha_num .* delta_caps + 32) / 64);
-    high_idx = target_caps < one;
-    gains(high_idx, 2) = min(gains(high_idx, 2), caps(high_idx));
+    green_targets = cfg.warm_highlight_green_caps_fixed(:);
+    green_delta = one - green_targets;
+    green_caps = one - floor((alpha_num .* green_delta + 32) / 64);
+    green_idx = green_targets < one;
+    gains(green_idx, 2) = min(gains(green_idx, 2), green_caps(green_idx));
 
     blue_targets = cfg.warm_highlight_blue_floors_fixed(:);
     blue_delta = one - blue_targets;
@@ -45,8 +37,10 @@ if wa < 64
     blue_idx = blue_targets < one;
     gains(blue_idx, 3) = max(gains(blue_idx, 3), blue_floors(blue_idx));
 end
+
 if wa > 64
     alpha_num = wa - 64;
+
     green_targets = cfg.cool_highlight_green_caps_fixed(:);
     green_delta = one - green_targets;
     green_caps = one - floor((alpha_num .* green_delta + 31) / 63);
@@ -59,6 +53,7 @@ if wa > 64
     blue_idx = blue_targets > one;
     gains(blue_idx, 3) = min(gains(blue_idx, 3), blue_caps(blue_idx));
 end
+
 if wa == 64
     gains(:, :) = one;
 end
@@ -71,14 +66,8 @@ neutral = cfg.wa_base_gain_lut_fixed(2, :);
 cool = cfg.wa_base_gain_lut_fixed(3, :);
 
 if wa <= 64
-    % warm -> neutral，除数固定为 64，适合硬件 shift 实现。
-    num = wa;
-    delta = neutral - warm;
-    base = warm + floor((num .* delta + 32) / 64);
+    base = warm + floor((wa .* (neutral - warm) + 32) / 64);
 else
-    % neutral -> cool，同样保持 /64 的整数插值结构。
-    num = wa - 64;
-    delta = cool - neutral;
-    base = neutral + floor((num .* delta + 32) / 64);
+    base = neutral + floor(((wa - 64) .* (cool - neutral) + 32) / 64);
 end
 end

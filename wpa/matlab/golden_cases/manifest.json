@@ -4,7 +4,7 @@
   "coeff_frac_bits": 8,
   "cases": [
     {
-      "source_image": "/Users/onion/Desktop/code/CE/wpa_python_port/claude_version_cct_rgb_gain_method/test_images/synthetic/01_grey_ramp.png",
+      "source_image": "/Users/onion/Desktop/code/CE/wpa/test_images/synthetic/01_grey_ramp.png",
       "output_image": "01_grey_ramp_wa0.png",
       "wa_sel": 0,
       "shape": [
@@ -14,18 +14,18 @@
       ],
       "dtype": "uint8",
       "mean_rgb": [
-        149.9141,
+        149.8672,
         122.082,
-        105.9453
+        106.5547
       ],
       "max_rgb": [
         255,
         248,
-        234
+        243
       ]
     },
     {
-      "source_image": "/Users/onion/Desktop/code/CE/wpa_python_port/claude_version_cct_rgb_gain_method/test_images/synthetic/01_grey_ramp.png",
+      "source_image": "/Users/onion/Desktop/code/CE/wpa/test_images/synthetic/01_grey_ramp.png",
       "output_image": "01_grey_ramp_wa64.png",
       "wa_sel": 64,
       "shape": [
@@ -46,7 +46,7 @@
       ]
     },
     {
-      "source_image": "/Users/onion/Desktop/code/CE/wpa_python_port/claude_version_cct_rgb_gain_method/test_images/synthetic/01_grey_ramp.png",
+      "source_image": "/Users/onion/Desktop/code/CE/wpa/test_images/synthetic/01_grey_ramp.png",
       "output_image": "01_grey_ramp_wa127.png",
       "wa_sel": 127,
       "shape": [
@@ -67,7 +67,7 @@
       ]
     },
     {
-      "source_image": "/Users/onion/Desktop/code/CE/wpa_python_port/claude_version_cct_rgb_gain_method/test_images/synthetic/near_white_steps.png",
+      "source_image": "/Users/onion/Desktop/code/CE/wpa/test_images/synthetic/near_white_steps.png",
       "output_image": "near_white_steps_wa0.png",
       "wa_sel": 0,
       "shape": [
@@ -77,18 +77,18 @@
       ],
       "dtype": "uint8",
       "mean_rgb": [
-        254.5882,
+        254.3529,
         232.7059,
-        218.0588
+        222.0
       ],
       "max_rgb": [
         255,
         248,
-        234
+        243
       ]
     },
     {
-      "source_image": "/Users/onion/Desktop/code/CE/wpa_python_port/claude_version_cct_rgb_gain_method/test_images/synthetic/near_white_steps.png",
+      "source_image": "/Users/onion/Desktop/code/CE/wpa/test_images/synthetic/near_white_steps.png",
       "output_image": "near_white_steps_wa64.png",
       "wa_sel": 64,
       "shape": [
@@ -109,7 +109,7 @@
       ]
     },
     {
-      "source_image": "/Users/onion/Desktop/code/CE/wpa_python_port/claude_version_cct_rgb_gain_method/test_images/synthetic/near_white_steps.png",
+      "source_image": "/Users/onion/Desktop/code/CE/wpa/test_images/synthetic/near_white_steps.png",
       "output_image": "near_white_steps_wa127.png",
       "wa_sel": 127,
       "shape": [
@@ -130,7 +130,7 @@
       ]
     },
     {
-      "source_image": "/Users/onion/Desktop/code/CE/wpa_python_port/claude_version_cct_rgb_gain_method/test_images/synthetic/11_ui_text_contrast.png",
+      "source_image": "/Users/onion/Desktop/code/CE/wpa/test_images/synthetic/11_ui_text_contrast.png",
       "output_image": "11_ui_text_contrast_wa0.png",
       "wa_sel": 0,
       "shape": [
@@ -142,16 +142,16 @@
       "mean_rgb": [
         197.3964,
         179.2785,
-        166.7379
+        169.5171
       ],
       "max_rgb": [
         255,
         239,
-        225
+        230
       ]
     },
     {
-      "source_image": "/Users/onion/Desktop/code/CE/wpa_python_port/claude_version_cct_rgb_gain_method/test_images/synthetic/11_ui_text_contrast.png",
+      "source_image": "/Users/onion/Desktop/code/CE/wpa/test_images/synthetic/11_ui_text_contrast.png",
       "output_image": "11_ui_text_contrast_wa64.png",
       "wa_sel": 64,
       "shape": [
@@ -172,7 +172,7 @@
       ]
     },
     {
-      "source_image": "/Users/onion/Desktop/code/CE/wpa_python_port/claude_version_cct_rgb_gain_method/test_images/synthetic/11_ui_text_contrast.png",
+      "source_image": "/Users/onion/Desktop/code/CE/wpa/test_images/synthetic/11_ui_text_contrast.png",
       "output_image": "11_ui_text_contrast_wa127.png",
       "wa_sel": 127,
       "shape": [
@@ -189,69 +189,6 @@
       "max_rgb": [
         239,
         242,
-        255
-      ]
-    },
-    {
-      "source_image": "/Users/onion/Desktop/code/CE/wpa_python_port/claude_version_cct_rgb_gain_method/test_images/real/real_sanity/public_hdr_window/gfp_sunroom.jpg",
-      "output_image": "gfp_sunroom_wa0.png",
-      "wa_sel": 0,
-      "shape": [
-        2223,
-        3388,
-        3
-      ],
-      "dtype": "uint8",
-      "mean_rgb": [
-        135.6171,
-        95.1785,
-        73.6391
-      ],
-      "max_rgb": [
-        255,
-        248,
-        234
-      ]
-    },
-    {
-      "source_image": "/Users/onion/Desktop/code/CE/wpa_python_port/claude_version_cct_rgb_gain_method/test_images/real/real_sanity/public_hdr_window/gfp_sunroom.jpg",
-      "output_image": "gfp_sunroom_wa64.png",
-      "wa_sel": 64,
-      "shape": [
-        2223,
-        3388,
-        3
-      ],
-      "dtype": "uint8",
-      "mean_rgb": [
-        111.1023,
-        100.6267,
-        94.9024
-      ],
-      "max_rgb": [
-        255,
-        255,
-        255
-      ]
-    },
-    {
-      "source_image": "/Users/onion/Desktop/code/CE/wpa_python_port/claude_version_cct_rgb_gain_method/test_images/real/real_sanity/public_hdr_window/gfp_sunroom.jpg",
-      "output_image": "gfp_sunroom_wa127.png",
-      "wa_sel": 127,
-      "shape": [
-        2223,
-        3388,
-        3
-      ],
-      "dtype": "uint8",
-      "mean_rgb": [
-        104.9819,
-        100.5642,
-        105.4154
-      ],
-      "max_rgb": [
-        249,
-        254,
         255
       ]
     }

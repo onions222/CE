@@ -361,6 +361,32 @@ def gen_bin_boundary_triplet_chart(patch_size: int = 36, gap: int = 10) -> np.nd
     return img
 
 
+def gen_near_node_patch_grid(
+    patch_w: int = 28,
+    patch_h: int = 36,
+    radius: int = 4,
+) -> np.ndarray:
+    """Compact 12x9 grey patch grid centered on each luma node.
+
+    Each row corresponds to one luma node. Within a row, the 9 patches are
+    ``node-4 .. node+4`` with uint8 clipping, matching the compact reference
+    chart provided under ``test_images/synthetic/1773196575672.png``.
+    """
+    nodes = [15, 31, 47, 63, 95, 127, 159, 191, 223, 239, 247, 255]
+    offsets = list(range(-radius, radius + 1))
+    width = len(offsets) * patch_w
+    height = len(nodes) * patch_h
+    img = np.zeros((height, width, 3), dtype=np.uint8)
+
+    for row_idx, node in enumerate(nodes):
+        y0 = row_idx * patch_h
+        for col_idx, offset in enumerate(offsets):
+            x0 = col_idx * patch_w
+            value = int(np.clip(node + offset, 0, 255))
+            img[y0:y0 + patch_h, x0:x0 + patch_w] = value
+    return img
+
+
 def gen_near_node_ramp_chart(patch_size: int = 20, span: int = 8) -> np.ndarray:
     """Local grey ramps centered on each luma node to expose discontinuities."""
     nodes = [15, 31, 47, 63, 95, 127, 159, 191, 223, 239, 247, 255]
@@ -514,6 +540,7 @@ GENERATORS = {
     "rgb_cmy_color_bars":    gen_rgb_cmy_color_bars,
     "two_axis_neutral_gradient": gen_two_axis_neutral_gradient,
     "bin_boundary_triplet_chart": gen_bin_boundary_triplet_chart,
+    "near_node_patch_grid":  gen_near_node_patch_grid,
     "near_node_ramp_chart": gen_near_node_ramp_chart,
     "iso_gray_18_70_pair":   gen_iso_gray_18_70_pair,
     "midtone_neutral_texture": gen_midtone_neutral_texture,

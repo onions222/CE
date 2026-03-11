@@ -76,6 +76,19 @@ def test_fixed_warm_highlight_bins_soften_green_for_pale_yellow() -> None:
         assert int(row[1]) <= green_cap
 
 
+def test_fixed_warm_highlight_bins_taper_red_and_blue_toward_cleaner_warm_white() -> None:
+    cfg = FixedWPAConfig(wa_sel=0, coeff_frac_bits=8)
+    gains = cfg.runtime_bin_gains_fixed(0)
+    tail = gains[-4:].astype(np.int32)
+    red = [int(row[0]) for row in tail]
+    blue = [int(row[2]) for row in tail]
+    chroma_span = [int(row.max() - row.min()) for row in tail]
+
+    assert red[0] > red[1] > red[2] > red[3]
+    assert blue[0] < blue[1] < blue[2] < blue[3]
+    assert chroma_span[0] > chroma_span[1] > chroma_span[2] > chroma_span[3]
+
+
 def test_fixed_cool_last_highlight_bin_softens_blue_to_reduce_cyan() -> None:
     cfg = FixedWPAConfig(wa_sel=127, coeff_frac_bits=8)
     gains = cfg.runtime_bin_gains_fixed(127)
@@ -111,3 +124,15 @@ def test_10bit_coeff_not_worse_than_8bit_vs_float_reference() -> None:
     mae8 = np.mean(np.abs(out8 - ref))
     mae10 = np.mean(np.abs(out10 - ref))
     assert mae10 <= mae8 + 1e-6
+
+
+def test_fixed_warm_near_white_tail_returns_to_lower_chroma_warm_white() -> None:
+    vals = [239, 247, 255]
+    img = np.array([[[v, v, v] for v in vals]], dtype=np.uint8)
+
+    out = wpa_fixed_process(img, FixedWPAConfig(wa_sel=0, coeff_frac_bits=8)).astype(np.int32)[0]
+    spans = [int(rgb.max() - rgb.min()) for rgb in out]
+
+    assert spans[0] > spans[1] > spans[2]
+    assert spans[-1] <= 18
+    assert int(out[-1, 1]) - int(out[-1, 2]) <= 10

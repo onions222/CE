@@ -1,25 +1,13 @@
-function cfg = wpa_fixed_config(varargin)
-%WPA_FIXED_CONFIG 构建 MATLAB 定点 WPA 配置。
+function cfg = hw_fixed_config(varargin)
+%HW_FIXED_CONFIG 构建独立硬件仿真配置。
 %
 % 设计口径：
-% 1. MATLAB 内部所有定点量都优先按 raw code（整数码值）理解；
+% 1. 全部定点量按 raw code 整数码值理解；
 % 2. 真实数值 = raw_code / scale_factor；
-% 3. MATLAB 侧不强调宿主容器类型，重点是 raw code 和 scale factor。
-%
-% 关键位宽定义：
-% - frac_bits        : 像素线性域小数位数，Q0.frac_bits
-% - coeff_frac_bits  : 增益系数小数位数，UQ1.coeff_frac_bits
-% - pixel_bits       : 像素 raw code 有效位宽 = frac_bits + 1
-% - coeff_bits       : 增益 raw code 有效位宽 = coeff_frac_bits + 1
-% - mul_bits         : 像素码值 * 增益码值的乘法累加有效位宽
-%
-% 例子：
-% - 当 coeff_frac_bits = 8 时，scale factor = 256
-% - 0.1 用 raw code round(0.1 * 256) = 26 表示
-% - 0.2 用 raw code round(0.2 * 256) = 51 表示
+% 3. 常驻数据只保留 3 个 anchor gain、12 个 luma node、12 点 atten 与 tail 表。
 
 cfg = struct( ...
-    'frac_bits', 10, ...
+    'frac_bits', 8, ...
     'coeff_frac_bits', 8, ...
     'wa_en', true, ...
     'wa_sel', 64, ...
@@ -59,9 +47,6 @@ cfg.ONE = 2 ^ cfg.frac_bits;
 cfg.HALF = 2 ^ (cfg.frac_bits - 1);
 cfg.COEFF_ONE = 2 ^ cfg.coeff_frac_bits;
 cfg.COEFF_HALF = 2 ^ (cfg.coeff_frac_bits - 1);
-% 有效位宽说明：
-% - ONE / HALF        对应像素 raw code 的 scale factor 与舍入偏置
-% - COEFF_ONE / HALF  对应增益 raw code 的 scale factor 与舍入偏置
 cfg.pixel_bits = cfg.frac_bits + 1;
 cfg.coeff_bits = cfg.coeff_frac_bits + 1;
 cfg.mul_bits = cfg.pixel_bits + cfg.coeff_bits;
@@ -131,7 +116,6 @@ one = cfg.COEFF_ONE;
 lut = local_build_cct_gain_lut(cfg);
 anchors = lut([1 65 128], :);
 gain_q = round(anchors * one);
-% table 中每个元素都是 UQ1.coeff_frac_bits 的 raw code。
 table = min(max(gain_q, 0), 65535);
 table(2, :) = one;
 end
@@ -231,35 +215,30 @@ end
 
 function caps = local_build_warm_highlight_red_caps_fixed(cfg)
 one = cfg.COEFF_ONE;
-caps = repmat(cfg.COEFF_ONE, numel(cfg.luma_nodes), 1);
-tail_caps = round([1.30; 1.22; 1.16; 1.10] * one);
-caps(end-3:end) = tail_caps;
+caps = repmat(one, numel(cfg.luma_nodes), 1);
+caps(end-3:end) = round([1.30; 1.22; 1.16; 1.10] * one);
 end
 
 function caps = local_build_warm_highlight_green_caps_fixed(cfg)
 one = cfg.COEFF_ONE;
-caps = repmat(cfg.COEFF_ONE, numel(cfg.luma_nodes), 1);
-tail_caps = round([0.94; 0.94; 0.94; 0.94] * one);
-caps(end-3:end) = tail_caps;
+caps = repmat(one, numel(cfg.luma_nodes), 1);
+caps(end-3:end) = round([0.94; 0.94; 0.94; 0.94] * one);
 end
 
 function caps = local_build_warm_highlight_blue_floors_fixed(cfg)
 one = cfg.COEFF_ONE;
-caps = repmat(cfg.COEFF_ONE, numel(cfg.luma_nodes), 1);
-tail_caps = round([0.80; 0.84; 0.87; 0.90] * one);
-caps(end-3:end) = tail_caps;
+caps = repmat(one, numel(cfg.luma_nodes), 1);
+caps(end-3:end) = round([0.80; 0.84; 0.87; 0.90] * one);
 end
 
 function caps = local_build_cool_highlight_green_caps_fixed(cfg)
 one = cfg.COEFF_ONE;
-caps = repmat(cfg.COEFF_ONE, numel(cfg.luma_nodes), 1);
-tail_caps = round([0.98; 0.975; 0.97; 0.965] * one);
-caps(end-3:end) = tail_caps;
+caps = repmat(one, numel(cfg.luma_nodes), 1);
+caps(end-3:end) = round([0.98; 0.975; 0.97; 0.965] * one);
 end
 
 function caps = local_build_cool_highlight_blue_caps_fixed(cfg)
 one = cfg.COEFF_ONE;
-caps = repmat(cfg.COEFF_ONE, numel(cfg.luma_nodes), 1);
-tail_caps = round([1.15; 1.12; 1.08; 1.06] * one);
-caps(end-3:end) = tail_caps;
+caps = repmat(one, numel(cfg.luma_nodes), 1);
+caps(end-3:end) = round([1.15; 1.12; 1.08; 1.06] * one);
 end

@@ -62,6 +62,18 @@ def test_warm_highlight_bin_green_is_softened_for_pale_yellow() -> None:
         assert row[1] <= 0.94
 
 
+def test_warm_highlight_bins_taper_red_and_blue_toward_cleaner_warm_white() -> None:
+    warm_bins = generate_default_bin_gains(WARM_GAIN_GLOBAL)
+    tail = warm_bins[-4:]
+    red = [float(row[0]) for row in tail]
+    blue = [float(row[2]) for row in tail]
+    chroma_span = [float(np.max(row) - np.min(row)) for row in tail]
+
+    assert red[0] > red[1] > red[2] > red[3]
+    assert blue[0] < blue[1] < blue[2] < blue[3]
+    assert chroma_span[0] > chroma_span[1] > chroma_span[2] > chroma_span[3]
+
+
 def test_cool_last_highlight_bin_blue_is_softened_to_reduce_cyan() -> None:
     cool_bins = generate_default_bin_gains(COOL_GAIN_GLOBAL)
     assert cool_bins[-1][2] <= 1.10

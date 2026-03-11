@@ -2,13 +2,13 @@
 
 ## 1. 创建测试图
 
-生成全部 synthetic 测试图：
+生成全部 synthetic 测试图（输出到 `tests/images/`，主要用于单独查看生成器，不是四联图脚本的默认输入目录）：
 
 ```bash
 python scripts/generate_test_images.py
 ```
 
-按 profile 构建测试集：
+按 profile 构建测试集（四联图脚本默认读取这里的输入）：
 
 ```bash
 python scripts/build_test_set.py --profile core_visual
@@ -17,9 +17,16 @@ python scripts/build_test_set.py --profile release_visual
 
 ## 2. 单张/多张测试图输出
 
+说明：
+
+- 仓库默认不提交四联图产物；`test_images/visualizations/` 只有在你运行下面命令后才会出现。
+- 如果你只运行了 `python scripts/generate_test_images.py`，图会在 `tests/images/` 下，`generate_comparison_visuals.py` 不会自动读取它们。
+- 先执行 `python scripts/build_test_set.py --profile core_visual`，再执行四联图生成命令。
+
 批量生成四联图：
 
 ```bash
+python scripts/build_test_set.py --profile core_visual
 python scripts/generate_comparison_visuals.py
 ```
 
@@ -38,8 +45,8 @@ from PIL import Image
 from scripts.generate_comparison_visuals import render_comparison_panel
 
 root = Path('.')
-img_path = root / 'test_images' / 'synthetic' / 'test_highlight.png'
-out_path = root / 'test_images' / 'visualizations' / 'synthetic' / 'test_highlight_comparison.png'
+img_path = root / 'test_images' / 'synthetic' / '12_specular_clip_chart.png'
+out_path = root / 'test_images' / 'visualizations' / 'synthetic' / '12_specular_clip_chart_comparison.png'
 
 image = Image.open(img_path).convert('RGB')
 panel, _ = render_comparison_panel(image, image_name=img_path.name)

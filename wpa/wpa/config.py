@@ -234,15 +234,21 @@ def generate_default_bin_gains(
     nodes = np.asarray(luma_nodes, dtype=np.int32)
     is_cool = g[2] > g[0]
     is_warm = g[0] > g[2]
+    warm_red_caps = {223: 1.30, 239: 1.22, 247: 1.16, 255: 1.10}
+    warm_green_caps = {223: 0.94, 239: 0.94, 247: 0.94, 255: 0.94}
+    warm_blue_floors = {223: 0.80, 239: 0.84, 247: 0.87, 255: 0.90}
     cool_green_caps = {223: 0.98, 239: 0.975, 247: 0.97, 255: 0.965}
     cool_blue_caps = {223: 1.15, 239: 1.12, 247: 1.08, 255: 1.06}
     for i, y in enumerate(luma_nodes):
         a = _atten_curve(y)
         table[i] = 1.0 + a * (g - 1.0)
+        if is_warm and y >= 223:
+            node = int(y)
+            table[i, 0] = min(table[i, 0], warm_red_caps.get(node, warm_red_caps[int(nodes[-1])]))
+            table[i, 1] = min(table[i, 1], warm_green_caps.get(node, warm_green_caps[int(nodes[-1])]))
+            table[i, 2] = max(table[i, 2], warm_blue_floors.get(node, warm_blue_floors[int(nodes[-1])]))
         if is_cool and y >= 223:
             table[i, 1] = min(table[i, 1], cool_green_caps.get(int(y), 0.98))
-        if is_warm and y >= 239:
-            table[i, 1] = min(table[i, 1], 0.94)
         if is_cool and y >= 223:
             table[i, 2] = min(table[i, 2], cool_blue_caps.get(int(y), cool_blue_caps[int(nodes[-1])]))
     return table

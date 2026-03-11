@@ -189,6 +189,17 @@ class TestWarmCoolDirection:
         assert r_diff < 0, f"Cool should cut R, got diff={r_diff}"
         assert b_diff > 0, f"Cool should boost B, got diff={b_diff}"
 
+    def test_warm_near_white_tail_returns_to_lower_chroma_warm_white(self):
+        vals = [239, 247, 255]
+        img = np.array([[[v, v, v] for v in vals]], dtype=np.uint8)
+
+        out = wpa_process_rgb_uint8(img, WPAConfig(wa_sel=0, sat_en=False))[0].astype(np.int32)
+        spans = [int(rgb.max() - rgb.min()) for rgb in out]
+
+        assert spans[0] > spans[1] > spans[2]
+        assert spans[-1] <= 18
+        assert int(out[-1, 1]) - int(out[-1, 2]) <= 10
+
 
 # ── Modes ────────────────────────────────────────────────────────────────
 

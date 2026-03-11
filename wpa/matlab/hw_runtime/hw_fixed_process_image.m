@@ -1,24 +1,16 @@
-function out = wpa_fixed_process_matlab(img, cfg)
-%WPA_FIXED_PROCESS_MATLAB MATLAB 定点 WPA 主处理流程。
-%
-% 这份实现与 Python `wpa_fixed` 行为对齐，但写法上明确采用
-% “raw code + scale factor” 的定点语义，便于 debug 和资源统计。
+function out = hw_fixed_process_image(img, cfg)
+%HW_FIXED_PROCESS_IMAGE 独立硬件仿真像素路径。
 %
 % 关键中间量：
 % - pixel_code      : Q0.frac_bits 像素码值，位宽 = cfg.pixel_bits
 % - gain_code       : UQ1.coeff_frac_bits 增益码值，位宽 = cfg.coeff_bits
-% - mul_acc_code    : 乘法累加中间码值，位宽 = cfg.mul_bits
-% - sat_delta_code  : 饱和度保护用的有符号差值码值
+% - mul_acc_code    : 乘法累加码值，位宽 = cfg.mul_bits
+% - sat_delta_code  : 饱和度保护差值码值
 %
-% 真实数值换算：
-% - 线性像素真实值 = pixel_code / cfg.ONE
-% - 增益真实值     = gain_code / cfg.COEFF_ONE
-%
-% 这里不显式指定中间量的宿主整数类型，只按 raw code 整数码值运算。
-% 有效位宽仍按 cfg.pixel_bits / cfg.coeff_bits / cfg.mul_bits 理解。
+% 这一路径只使用 3 anchor + 12 luma nodes + runtime 12x3 结构。
 
 if nargin < 2 || isempty(cfg)
-    cfg = wpa_fixed_config();
+    cfg = hw_fixed_config();
 end
 
 if ~isa(img, 'uint8') || ndims(img) ~= 3 || size(img, 3) ~= 3
@@ -30,43 +22,32 @@ if ~cfg.wa_en || cfg.wa_sel == 64
     return;
 end
 
-% Step 1: gamma 域 -> 线性域。这里保持浮点，与 Python fixed 一致。
 linear_f = local_degamma(img, cfg.gamma_mode, cfg.gamma_power);
-
-% Step 2: 线性域浮点 -> Q0.frac_bits raw code。
-% 例如 frac_bits = 10 时，1.0 <-> 1024。
 pixel_code = min(max(round(double(linear_f) * cfg.ONE), 0), cfg.ONE);
 
 if strcmp(char(cfg.luma_domain), 'gamma')
-    % luma_u8 是 8bit 亮度代理码值，位宽 = 8。
     luma_u8 = local_luma_proxy_u8(img);
 else
     r_code = pixel_code(:, :, 1);
     g_code = pixel_code(:, :, 2);
     b_code = pixel_code(:, :, 3);
-    % luma_code 仍然处于像素 raw code 域，位宽近似为 cfg.pixel_bits。
     luma_code = floor((r_code + 2 .* g_code + b_code) / 4);
     luma_u8 = min(floor((luma_code .* 255 + cfg.HALF) / (2 ^ cfg.frac_bits)), 255);
 end
 
-% Step 3: 先为当前 WA_SEL 展开 12x3 bin gain code，再做每像素插值。
-gain_table_codes = wpa_fixed_runtime_bin_gains(cfg, cfg.wa_sel);
+gain_table_codes = hw_fixed_runtime_bin_gains(cfg, cfg.wa_sel);
 gain_code = local_interpolate_gains(luma_u8, gain_table_codes, cfg.luma_nodes, cfg.bin_interp, cfg.frac_bits);
 
-% Step 4: raw code 乘法。
-% adjusted_code = round(pixel_code * gain_code / cfg.COEFF_ONE)
 mul_acc_code = pixel_code .* gain_code + cfg.COEFF_HALF;
 adjusted_code = floor(mul_acc_code / (2 ^ cfg.coeff_frac_bits));
 
 if cfg.sat_en
-    % sat_weight_code 位宽 = cfg.pixel_bits，对应 [0, 1] 权重码值。
     sat_weight_code = local_sat_weight(img, cfg.sat_s0, cfg.sat_s1, cfg.frac_bits);
     sat_weight_code3 = repmat(sat_weight_code, [1, 1, 3]);
     sat_delta_code = adjusted_code - pixel_code;
     adjusted_code = pixel_code + floor((sat_weight_code3 .* sat_delta_code + cfg.HALF) / (2 ^ cfg.frac_bits));
 end
 
-% Step 5: 回到浮点线性域，再做 engamma 和 uint8 量化输出。
 adjusted_code = min(max(adjusted_code, 0), cfg.ONE);
 linear_out = single(adjusted_code ./ cfg.ONE);
 encoded = local_engamma(linear_out, cfg.gamma_mode, cfg.gamma_power);
@@ -125,8 +106,7 @@ function y = local_luma_proxy_u8(rgb_u8)
 r = double(rgb_u8(:, :, 1));
 g = double(rgb_u8(:, :, 2));
 b = double(rgb_u8(:, :, 3));
-acc = r + 2 .* g + b;
-y = floor(acc / 4);
+y = floor((r + 2 .* g + b) / 4);
 end
 
 function gain = local_interpolate_gains(luma_u8, gains_table, luma_nodes, interp, interp_bits)
@@ -138,7 +118,6 @@ if nargin < 5
 end
 
 nodes = luma_nodes(:)';
-gains_table = gains_table;
 y = luma_u8;
 [h, w] = size(y);
 gain = zeros(h, w, 3);
@@ -171,8 +150,7 @@ for row = 1:h
 
         g_lo = gains_table(idx_lo, :);
         g_hi = gains_table(idx_hi, :);
-        delta = g_hi - g_lo;
-        gain(row, col, :) = g_lo + floor((t_code .* delta + half_interp) / (2 ^ interp_bits));
+        gain(row, col, :) = g_lo + floor((t_code .* (g_hi - g_lo) + half_interp) / (2 ^ interp_bits));
     end
 end
 end
