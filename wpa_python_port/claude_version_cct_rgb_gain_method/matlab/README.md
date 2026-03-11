@@ -1,38 +1,71 @@
 # MATLAB Fixed WPA
 
-This directory contains a MATLAB implementation intended to mirror the Python `wpa_fixed` pipeline.
+MATLAB 版本用于对齐 Python `wpa_fixed`。
 
-## Main Entry Points
+## 入口文件
 
 - `wpa_fixed_config.m`
 - `wpa_fixed_process_matlab.m`
 - `run_wpa_fixed_image.m`
 - `validate_wpa_fixed_against_python.m`
 
-## Typical Flow
+## 最常用流程
 
-1. Export Python golden cases:
+先进入项目根目录，在 MATLAB 中执行：
+
+```matlab
+addpath('matlab');
+```
+
+处理单张图片：
+
+```matlab
+run_wpa_fixed_image('input.png', 'output.png', 'wa_sel', 0, 'coeff_frac_bits', 8);
+```
+
+只返回输出数组，不写文件：
+
+```matlab
+img = imread('input.png');
+cfg = wpa_fixed_config('wa_sel', 127, 'coeff_frac_bits', 8);
+out = wpa_fixed_process_matlab(img, cfg);
+imshow(out);
+```
+
+## 配置示例
+
+默认配置：
+
+```matlab
+cfg = wpa_fixed_config();
+```
+
+指定 `wa_sel` 和定点精度：
+
+```matlab
+cfg = wpa_fixed_config('wa_sel', 20, 'coeff_frac_bits', 8);
+```
+
+`wa_sel = 64` 为 identity。
+
+## 与 Python 对齐验证
+
+先导出 Python golden cases：
 
 ```bash
 python scripts/export_matlab_wpa_fixed_golden.py
 ```
 
-2. In MATLAB:
+然后在 MATLAB 中执行：
 
 ```matlab
 addpath('matlab');
 summary = validate_wpa_fixed_against_python('matlab/golden_cases');
 ```
 
-3. Run a single image:
+## 说明
 
-```matlab
-addpath('matlab');
-run_wpa_fixed_image('input.png', 'output.png', 'wa_sel', 0, 'coeff_frac_bits', 8);
-```
-
-## Notes
-
-- The MATLAB version mirrors Python `wpa_fixed` semantics: float gamma, integer fixed-point gain path.
-- `wa_sel = 64` should remain identity.
-- The current local environment used to author these files did not have a MATLAB or Octave runtime, so validation here is limited to Python-side golden export and static implementation.
+- MATLAB 版本语义对齐 Python `wpa_fixed`
+- gamma 路径使用浮点
+- gain / bin / interpolation 主路径使用定点风格实现
+- 当前建议以 Python fixed 版本作为基准，MATLAB 侧做行为对齐

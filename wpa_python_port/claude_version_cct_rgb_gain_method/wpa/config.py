@@ -231,12 +231,20 @@ def generate_default_bin_gains(
         luma_nodes = LUMA_NODES_12
     g = np.array(gain_global, dtype=np.float64)
     table = np.empty((len(luma_nodes), 3), dtype=np.float64)
+    nodes = np.asarray(luma_nodes, dtype=np.int32)
     is_cool = g[2] > g[0]
+    is_warm = g[0] > g[2]
+    cool_green_caps = {223: 0.98, 239: 0.975, 247: 0.97, 255: 0.965}
+    cool_blue_caps = {223: 1.15, 239: 1.12, 247: 1.08, 255: 1.06}
     for i, y in enumerate(luma_nodes):
         a = _atten_curve(y)
         table[i] = 1.0 + a * (g - 1.0)
         if is_cool and y >= 223:
-            table[i, 1] = min(table[i, 1], 0.98)
+            table[i, 1] = min(table[i, 1], cool_green_caps.get(int(y), 0.98))
+        if is_warm and y >= 239:
+            table[i, 1] = min(table[i, 1], 0.94)
+        if is_cool and y >= 223:
+            table[i, 2] = min(table[i, 2], cool_blue_caps.get(int(y), cool_blue_caps[int(nodes[-1])]))
     return table
 
 

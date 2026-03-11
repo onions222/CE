@@ -83,6 +83,9 @@ for wa_sel = 0:127
     gain = target_rgb ./ neutral_rgb;
     y_gain = 0.2126 * gain(1) + 0.7152 * gain(2) + 0.0722 * gain(3);
     gain = gain ./ max(y_gain, 1e-6);
+    if wa_sel > 64
+        gain(2) = min(gain(2), 1.0);
+    end
     lut(wa_sel + 1, :) = min(max(gain, 0.5), 1.8);
 end
 lut(65, :) = [1.0 1.0 1.0];

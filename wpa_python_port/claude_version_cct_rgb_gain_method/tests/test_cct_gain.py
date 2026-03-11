@@ -6,6 +6,7 @@ import numpy as np
 
 from wpa.config import (
     COOL_GAIN_GLOBAL,
+    WARM_GAIN_GLOBAL,
     build_cct_gain_lut,
     cct_to_xy_approx,
     generate_default_bin_gains,
@@ -53,6 +54,26 @@ def test_cool_highlight_bin_green_does_not_exceed_identity() -> None:
     cool_bins = generate_default_bin_gains(COOL_GAIN_GLOBAL)
     for row in cool_bins[-4:]:
         assert row[1] <= 0.98
+
+
+def test_warm_highlight_bin_green_is_softened_for_pale_yellow() -> None:
+    warm_bins = generate_default_bin_gains(WARM_GAIN_GLOBAL)
+    for row in warm_bins[-3:]:
+        assert row[1] <= 0.94
+
+
+def test_cool_last_highlight_bin_blue_is_softened_to_reduce_cyan() -> None:
+    cool_bins = generate_default_bin_gains(COOL_GAIN_GLOBAL)
+    assert cool_bins[-1][2] <= 1.10
+
+
+def test_cool_highlight_bins_taper_green_and_blue_toward_white() -> None:
+    cool_bins = generate_default_bin_gains(COOL_GAIN_GLOBAL)
+    green_caps = [0.98, 0.975, 0.97, 0.965]
+    blue_caps = [1.15, 1.12, 1.08, 1.06]
+    for row, g_cap, b_cap in zip(cool_bins[-4:], green_caps, blue_caps):
+        assert row[1] <= g_cap
+        assert row[2] <= b_cap
 
 
 def test_cct_gain_lut_bounds() -> None:

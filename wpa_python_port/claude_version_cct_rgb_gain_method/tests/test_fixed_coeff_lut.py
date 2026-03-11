@@ -68,6 +68,31 @@ def test_fixed_cool_highlight_bins_reduce_green_slightly_below_identity() -> Non
         assert int(row[1]) <= green_cap
 
 
+def test_fixed_warm_highlight_bins_soften_green_for_pale_yellow() -> None:
+    cfg = FixedWPAConfig(wa_sel=0, coeff_frac_bits=8)
+    gains = cfg.runtime_bin_gains_fixed(0)
+    green_cap = int(round(0.94 * (1 << cfg.coeff_frac_bits)))
+    for row in gains[-3:]:
+        assert int(row[1]) <= green_cap
+
+
+def test_fixed_cool_last_highlight_bin_softens_blue_to_reduce_cyan() -> None:
+    cfg = FixedWPAConfig(wa_sel=127, coeff_frac_bits=8)
+    gains = cfg.runtime_bin_gains_fixed(127)
+    blue_cap = int(round(1.10 * (1 << cfg.coeff_frac_bits)))
+    assert int(gains[-1][2]) <= blue_cap
+
+
+def test_fixed_cool_highlight_bins_taper_green_and_blue_toward_white() -> None:
+    cfg = FixedWPAConfig(wa_sel=127, coeff_frac_bits=8)
+    gains = cfg.runtime_bin_gains_fixed(127)
+    green_caps = [0.98, 0.975, 0.97, 0.965]
+    blue_caps = [1.15, 1.12, 1.08, 1.06]
+    for row, g_cap, b_cap in zip(gains[-4:], green_caps, blue_caps):
+        assert int(row[1]) <= int(round(g_cap * (1 << cfg.coeff_frac_bits)))
+        assert int(row[2]) <= int(round(b_cap * (1 << cfg.coeff_frac_bits)))
+
+
 def test_10bit_coeff_not_worse_than_8bit_vs_float_reference() -> None:
     img = _make_gradient_image(h=16, w=128)
 

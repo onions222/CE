@@ -200,10 +200,19 @@ class FixedWPAConfig:
             (atten_q[:, np.newaxis].astype(np.int64) * delta[np.newaxis, :].astype(np.int64)
              + self.COEFF_HALF) >> self.coeff_frac_bits
         ).astype(np.int32)
-        if wa > 64:
-            green_cap = one - int(round(((wa - 64) / 64.0) * 0.02 * one))
-            high_idx = np.asarray(self.luma_nodes, dtype=np.int32) >= 223
+        if wa < 64:
+            green_cap = one - int(round(((64 - wa) / 64.0) * 0.06 * one))
+            high_idx = np.asarray(self.luma_nodes, dtype=np.int32) >= 239
             gains[high_idx, 1] = np.minimum(gains[high_idx, 1], green_cap)
+        if wa > 64:
+            alpha = (wa - 64) / 63.0
+            cool_green_deltas = np.array([0.02, 0.025, 0.03, 0.035], dtype=np.float64)
+            cool_blue_deltas = np.array([0.15, 0.12, 0.08, 0.06], dtype=np.float64)
+            tail = slice(-4, None)
+            green_caps = one - np.round(alpha * cool_green_deltas * one).astype(np.int32)
+            blue_caps = one + np.round(alpha * cool_blue_deltas * one).astype(np.int32)
+            gains[tail, 1] = np.minimum(gains[tail, 1], green_caps)
+            gains[tail, 2] = np.minimum(gains[tail, 2], blue_caps)
         if wa == 64:
             gains[:, :] = one
         return gains
