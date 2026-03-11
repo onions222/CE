@@ -60,6 +60,14 @@ def test_fixed_pipeline_warm_cool_direction_for_8bit_coeff() -> None:
     assert m_cool[2] > m_cool[0], "cool should bias B over R"
 
 
+def test_fixed_cool_highlight_bins_reduce_green_slightly_below_identity() -> None:
+    cfg = FixedWPAConfig(wa_sel=127, coeff_frac_bits=8)
+    gains = cfg.runtime_bin_gains_fixed(127)
+    green_cap = int(round(0.98 * (1 << cfg.coeff_frac_bits)))
+    for row in gains[-4:]:
+        assert int(row[1]) <= green_cap
+
+
 def test_10bit_coeff_not_worse_than_8bit_vs_float_reference() -> None:
     img = _make_gradient_image(h=16, w=128)
 

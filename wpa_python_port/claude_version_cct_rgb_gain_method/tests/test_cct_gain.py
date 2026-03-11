@@ -5,8 +5,10 @@ from __future__ import annotations
 import numpy as np
 
 from wpa.config import (
+    COOL_GAIN_GLOBAL,
     build_cct_gain_lut,
     cct_to_xy_approx,
+    generate_default_bin_gains,
     map_sat_threshold_gamma_to_linear,
     wa_sel_to_cct,
 )
@@ -39,6 +41,18 @@ def test_cct_gain_lut_direction() -> None:
     cool = lut[127]
     assert warm[0] > warm[2], f"warm endpoint expected R>B, got {warm}"
     assert cool[2] > cool[0], f"cool endpoint expected B>R, got {cool}"
+
+
+def test_cool_endpoint_green_does_not_exceed_identity() -> None:
+    lut = build_cct_gain_lut()
+    cool = lut[127]
+    assert cool[1] <= 1.0
+
+
+def test_cool_highlight_bin_green_does_not_exceed_identity() -> None:
+    cool_bins = generate_default_bin_gains(COOL_GAIN_GLOBAL)
+    for row in cool_bins[-4:]:
+        assert row[1] <= 0.98
 
 
 def test_cct_gain_lut_bounds() -> None:

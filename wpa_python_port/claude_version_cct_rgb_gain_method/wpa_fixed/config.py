@@ -25,16 +25,16 @@ def _atten_curve(y: float) -> float:
 
         y <= 31  : atten = 0.55
         y == 127 : atten = 1.00
-        y >= 239 : atten = 0.65
+        y >= 239 : atten = 0.35
     """
     if y <= 31:
         return 0.55
     elif y <= 127:
         return 0.55 + 0.45 * (y - 31) / (127 - 31)
     elif y <= 239:
-        return 1.00 - 0.35 * (y - 127) / (239 - 127)
+        return 1.00 - 0.65 * (y - 127) / (239 - 127)
     else:
-        return 0.65
+        return 0.35
 
 
 def _build_wa_base_gain_lut_fixed(
@@ -200,6 +200,10 @@ class FixedWPAConfig:
             (atten_q[:, np.newaxis].astype(np.int64) * delta[np.newaxis, :].astype(np.int64)
              + self.COEFF_HALF) >> self.coeff_frac_bits
         ).astype(np.int32)
+        if wa > 64:
+            green_cap = one - int(round(((wa - 64) / 64.0) * 0.02 * one))
+            high_idx = np.asarray(self.luma_nodes, dtype=np.int32) >= 223
+            gains[high_idx, 1] = np.minimum(gains[high_idx, 1], green_cap)
         if wa == 64:
             gains[:, :] = one
         return gains

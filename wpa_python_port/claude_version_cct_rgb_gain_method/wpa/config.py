@@ -170,6 +170,10 @@ def build_cct_gain_lut(
         # Keep luma stable to avoid global brightness drift.
         y_gain = 0.2126 * gain[0] + 0.7152 * gain[1] + 0.0722 * gain[2]
         gain = gain / max(y_gain, 1e-6)
+        # For cool white points, avoid lifting G above identity. Otherwise
+        # near-white highlights can drift toward cyan/green around high-luma nodes.
+        if wa_sel > 64:
+            gain[1] = min(gain[1], 1.0)
         lut[wa_sel] = np.clip(gain, gain_min, gain_max)
 
     # Guarantee identity at WA_SEL=64 exactly.
@@ -190,7 +194,7 @@ def _atten_curve(y: float) -> float:
 
         y <= 31  : atten = 0.55
         y == 127 : atten = 1.00
-        y >= 239 : atten = 0.65
+        y >= 239 : atten = 0.35
         linear interpolation between breakpoints.
     """
     if y <= 31:
@@ -199,10 +203,10 @@ def _atten_curve(y: float) -> float:
         # linear from 0.55 @ y=31  to  1.00 @ y=127
         return 0.55 + (1.00 - 0.55) * (y - 31) / (127 - 31)
     elif y <= 239:
-        # linear from 1.00 @ y=127  to  0.65 @ y=239
-        return 1.00 + (0.65 - 1.00) * (y - 127) / (239 - 127)
+        # linear from 1.00 @ y=127  to  0.35 @ y=239
+        return 1.00 + (0.35 - 1.00) * (y - 127) / (239 - 127)
     else:
-        return 0.65
+        return 0.35
 
 
 def generate_default_bin_gains(
@@ -227,9 +231,12 @@ def generate_default_bin_gains(
         luma_nodes = LUMA_NODES_12
     g = np.array(gain_global, dtype=np.float64)
     table = np.empty((len(luma_nodes), 3), dtype=np.float64)
+    is_cool = g[2] > g[0]
     for i, y in enumerate(luma_nodes):
         a = _atten_curve(y)
         table[i] = 1.0 + a * (g - 1.0)
+        if is_cool and y >= 223:
+            table[i, 1] = min(table[i, 1], 0.98)
     return table
 
 
