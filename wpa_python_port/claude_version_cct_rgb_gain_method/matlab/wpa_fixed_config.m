@@ -20,7 +20,15 @@ cfg = struct( ...
     'cct_xy_split_k', 4000.0, ...
     'cct_xy_blend_half_width_k', 100.0, ...
     'wa_base_gain_lut_fixed', [], ...
-    'atten_q_lut_fixed', []);
+    'atten_q_lut_fixed', [], ...
+    'warm_highlight_green_caps_fixed', [], ...
+    'cool_highlight_green_caps_fixed', [], ...
+    'cool_highlight_blue_caps_fixed', [], ...
+    'pixel_bits', [], ...
+    'coeff_bits', [], ...
+    'luma_bits', uint8(8), ...
+    'sat_bits', uint8(10), ...
+    'mul_bits', []);
 
 cfg = local_apply_overrides(cfg, varargin{:});
 
@@ -32,6 +40,9 @@ cfg.ONE = bitshift(int32(1), cfg.frac_bits);
 cfg.HALF = bitshift(int32(1), cfg.frac_bits - 1);
 cfg.COEFF_ONE = bitshift(int32(1), cfg.coeff_frac_bits);
 cfg.COEFF_HALF = bitshift(int32(1), cfg.coeff_frac_bits - 1);
+cfg.pixel_bits = uint8(cfg.frac_bits + 1);
+cfg.coeff_bits = uint8(cfg.coeff_frac_bits + 1);
+cfg.mul_bits = uint8(cfg.pixel_bits + cfg.coeff_bits);
 
 if isempty(cfg.wa_base_gain_lut_fixed)
     cfg.wa_base_gain_lut_fixed = local_build_wa_base_gain_lut_fixed(cfg);
@@ -47,6 +58,24 @@ if isempty(cfg.atten_q_lut_fixed)
     cfg.atten_q_lut_fixed = int32(round(atten * double(cfg.COEFF_ONE)));
 else
     cfg.atten_q_lut_fixed = int32(cfg.atten_q_lut_fixed);
+end
+
+if isempty(cfg.warm_highlight_green_caps_fixed)
+    cfg.warm_highlight_green_caps_fixed = local_build_warm_highlight_green_caps_fixed(cfg);
+else
+    cfg.warm_highlight_green_caps_fixed = uint16(cfg.warm_highlight_green_caps_fixed);
+end
+
+if isempty(cfg.cool_highlight_green_caps_fixed)
+    cfg.cool_highlight_green_caps_fixed = local_build_cool_highlight_green_caps_fixed(cfg);
+else
+    cfg.cool_highlight_green_caps_fixed = uint16(cfg.cool_highlight_green_caps_fixed);
+end
+
+if isempty(cfg.cool_highlight_blue_caps_fixed)
+    cfg.cool_highlight_blue_caps_fixed = local_build_cool_highlight_blue_caps_fixed(cfg);
+else
+    cfg.cool_highlight_blue_caps_fixed = uint16(cfg.cool_highlight_blue_caps_fixed);
 end
 end
 
@@ -151,4 +180,25 @@ m_xyz_to_srgb = [ ...
    -0.9689,  1.8758,  0.0415; ...
     0.0557, -0.2040,  1.0570];
 rgb = max(m_xyz_to_srgb * xyz, 1e-6)';
+end
+
+function caps = local_build_warm_highlight_green_caps_fixed(cfg)
+one = double(cfg.COEFF_ONE);
+caps = uint16(repmat(uint16(cfg.COEFF_ONE), numel(cfg.luma_nodes), 1));
+high_idx = cfg.luma_nodes(:) >= 239;
+caps(high_idx) = uint16(round(0.94 * one));
+end
+
+function caps = local_build_cool_highlight_green_caps_fixed(cfg)
+one = double(cfg.COEFF_ONE);
+caps = uint16(repmat(uint16(cfg.COEFF_ONE), numel(cfg.luma_nodes), 1));
+tail_caps = uint16(round([0.98; 0.975; 0.97; 0.965] * one));
+caps(end-3:end) = tail_caps;
+end
+
+function caps = local_build_cool_highlight_blue_caps_fixed(cfg)
+one = double(cfg.COEFF_ONE);
+caps = uint16(repmat(uint16(cfg.COEFF_ONE), numel(cfg.luma_nodes), 1));
+tail_caps = uint16(round([1.15; 1.12; 1.08; 1.06] * one));
+caps(end-3:end) = tail_caps;
 end
