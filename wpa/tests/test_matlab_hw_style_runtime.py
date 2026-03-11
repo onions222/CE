@@ -189,3 +189,24 @@ def test_matlab_hw_runtime_core_files_include_chinese_bit_width_comments() -> No
         text = _read(rel)
         assert "位宽" in text, rel
         assert "raw code" in text, rel
+
+
+def test_matlab_hw_runtime_config_bakes_anchor_and_atten_tables() -> None:
+    text = _read("matlab/hw_runtime/hw_fixed_config.m")
+    assert "436, 221, 128;" in text
+    assert "256, 256, 256;" in text
+    assert "219, 256, 339;" in text
+    assert "141, 141, 160, 179, 218, 256, 208, 161, 113, 90, 90, 90" in text
+    assert "1746, 885, 512;" in text
+    assert "1024, 1024, 1024;" in text
+    assert "878, 1024, 1355;" in text
+    assert "563, 563, 640, 717, 870, 1024, 834, 644, 453, 358, 358, 358" in text
+
+
+def test_matlab_hw_runtime_config_no_longer_builds_anchor_or_atten_from_cct() -> None:
+    text = _read("matlab/hw_runtime/hw_fixed_config.m")
+    assert "local_build_cct_gain_lut" not in text
+    assert "local_wa_sel_to_cct" not in text
+    assert "local_cct_to_xy_approx" not in text
+    assert "local_xy_to_linear_srgb_white" not in text
+    assert "local_atten_curve" not in text

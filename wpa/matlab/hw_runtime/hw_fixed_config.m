@@ -12,10 +12,16 @@ function cfg = hw_fixed_config(varargin)
 % - mul_bits = 18 bit，对应像素码值与增益码值乘法累加位宽
 %
 % 常驻表说明：
-% - wa_base_gain_lut_fixed[3][3]：只保存 warm / neutral / cool 三个 anchor
+% - wa_base_gain_lut_fixed[3][3]：只保存 warm / fair(neutral) / cool 三个 anchor
 % - atten_q_lut_fixed[12]：12 个亮度节点的衰减 raw code
 % - luma_nodes[12]：亮度节点 [15, 31, ..., 255]
 % - warm/cool highlight tail：高亮末端单独修正表
+%
+% 当前实现是纯表驱动：
+% - 3 个端点增益值已经提前算好，直接写入 MATLAB
+% - 12 个亮度衰减 raw code 也已经提前算好，直接写入 MATLAB
+% - 运行时不再做 CCT -> xy -> RGB gain 推导
+% - 运行时也不再做 atten_curve 在线生成
 
 cfg = struct( ...
     'frac_bits', 8, ...
@@ -30,11 +36,6 @@ cfg = struct( ...
     'sat_en', false, ...
     'sat_s0', 100, ...
     'sat_s1', 500, ...
-    'cct_warm_k', 3000.0, ...
-    'cct_neutral_k', 6500.0, ...
-    'cct_cool_k', 9300.0, ...
-    'cct_xy_split_k', 4000.0, ...
-    'cct_xy_blend_half_width_k', 100.0, ...
     'wa_base_gain_lut_fixed', [], ...
     'atten_q_lut_fixed', [], ...
     'warm_highlight_red_caps_fixed', [], ...
@@ -66,17 +67,13 @@ cfg.coeff_bits = cfg.coeff_frac_bits + 1;
 cfg.mul_bits = cfg.pixel_bits + cfg.coeff_bits;
 
 if isempty(cfg.wa_base_gain_lut_fixed)
-    cfg.wa_base_gain_lut_fixed = local_build_wa_base_gain_lut_fixed(cfg);
+    cfg.wa_base_gain_lut_fixed = local_default_wa_base_gain_lut_fixed(cfg);
 else
     cfg.wa_base_gain_lut_fixed = round(cfg.wa_base_gain_lut_fixed);
 end
 
 if isempty(cfg.atten_q_lut_fixed)
-    atten = zeros(numel(cfg.luma_nodes), 1);
-    for i = 1:numel(cfg.luma_nodes)
-        atten(i) = local_atten_curve(cfg.luma_nodes(i));
-    end
-    cfg.atten_q_lut_fixed = round(atten * cfg.COEFF_ONE);
+    cfg.atten_q_lut_fixed = local_default_atten_q_lut_fixed(cfg);
 else
     cfg.atten_q_lut_fixed = round(cfg.atten_q_lut_fixed);
 end
@@ -125,110 +122,38 @@ for i = 1:2:numel(varargin)
 end
 end
 
-function table = local_build_wa_base_gain_lut_fixed(cfg)
-% 只取完整 128 档浮点 CCT gain 中的 3 个 anchor：
-% - index 1   -> warm
-% - index 65  -> neutral
-% - index 128 -> cool
-one = cfg.COEFF_ONE;
-lut = local_build_cct_gain_lut(cfg);
-anchors = lut([1 65 128], :);
-gain_q = round(anchors * one);
-% table 的每个元素都是增益 raw code，位宽按 coeff_bits 理解。
-table = min(max(gain_q, 0), 65535);
-table(2, :) = one;
-end
-
-function lut = local_build_cct_gain_lut(cfg)
-lut = zeros(128, 3);
-[x_n, y_n] = local_cct_to_xy_approx(cfg.cct_neutral_k, cfg.cct_xy_split_k, cfg.cct_xy_blend_half_width_k);
-neutral_rgb = local_xy_to_linear_srgb_white(x_n, y_n);
-for wa_sel = 0:127
-    cct = local_wa_sel_to_cct(wa_sel, cfg.cct_warm_k, cfg.cct_neutral_k, cfg.cct_cool_k);
-    [x_t, y_t] = local_cct_to_xy_approx(cct, cfg.cct_xy_split_k, cfg.cct_xy_blend_half_width_k);
-    target_rgb = local_xy_to_linear_srgb_white(x_t, y_t);
-    gain = target_rgb ./ neutral_rgb;
-    y_gain = 0.2126 * gain(1) + 0.7152 * gain(2) + 0.0722 * gain(3);
-    gain = gain ./ max(y_gain, 1e-6);
-    if wa_sel > 64
-        gain(2) = min(gain(2), 1.0);
-    end
-    lut(wa_sel + 1, :) = min(max(gain, 0.5), 1.8);
-end
-lut(65, :) = [1.0 1.0 1.0];
-end
-
-function cct = local_wa_sel_to_cct(wa_sel, warm_k, neutral_k, cool_k)
-w = min(max(double(wa_sel), 0.0), 127.0);
-if w <= 64
-    cct = neutral_k - (64.0 - w) * (neutral_k - warm_k) / 64.0;
+function table = local_default_wa_base_gain_lut_fixed(cfg)
+% 3 个端点增益值已经在 Python fixed 版本中提前算好，这里直接写死。
+% 行顺序固定为：
+% - row 1: warm
+% - row 2: fair(neutral)
+% - row 3: cool
+if cfg.coeff_frac_bits == 8
+    table = [
+        436, 221, 128;
+        256, 256, 256;
+        219, 256, 339;
+    ];
+elseif cfg.coeff_frac_bits == 10
+    table = [
+        1746, 885, 512;
+        1024, 1024, 1024;
+        878, 1024, 1355;
+    ];
 else
-    cct = neutral_k + (w - 64.0) * (cool_k - neutral_k) / 63.0;
+    error('coeff_frac_bits must be 8 or 10');
 end
 end
 
-function [x, y] = local_cct_to_xy_approx(cct, split_k, blend_half_width_k)
-t = min(max(double(cct), 1667.0), 25000.0);
-
-x_low = -0.2661239e9 / (t ^ 3) - 0.2343580e6 / (t ^ 2) + 0.8776956e3 / t + 0.179910;
-x_high = -3.0258469e9 / (t ^ 3) + 2.1070379e6 / (t ^ 2) + 0.2226347e3 / t + 0.240390;
-
-split = double(split_k);
-half = max(double(blend_half_width_k), 0.0);
-blend_lo = split - half;
-blend_hi = split + half;
-
-if half <= 0.0
-    if t <= split
-        x = x_low;
-    else
-        x = x_high;
-    end
-    u = 0.0;
-elseif t <= blend_lo
-    x = x_low;
-    u = 0.0;
-elseif t >= blend_hi
-    x = x_high;
-    u = 1.0;
+function table = local_default_atten_q_lut_fixed(cfg)
+% 12 个亮度节点衰减值也提前算好，直接写成 raw code 常量表。
+% 顺序对应 luma_nodes = [15, 31, 47, 63, 95, 127, 159, 191, 223, 239, 247, 255]
+if cfg.coeff_frac_bits == 8
+    table = [141, 141, 160, 179, 218, 256, 208, 161, 113, 90, 90, 90];
+elseif cfg.coeff_frac_bits == 10
+    table = [563, 563, 640, 717, 870, 1024, 834, 644, 453, 358, 358, 358];
 else
-    u = (t - blend_lo) / (blend_hi - blend_lo);
-    u = u * u * (3.0 - 2.0 * u);
-    x = (1.0 - u) * x_low + u * x_high;
-end
-
-if t <= 2222.0
-    y = -1.1063814 * (x ^ 3) - 1.34811020 * (x ^ 2) + 2.18555832 * x - 0.20219683;
-elseif t < blend_lo
-    y = -0.9549476 * (x ^ 3) - 1.37418593 * (x ^ 2) + 2.09137015 * x - 0.16748867;
-elseif t > blend_hi
-    y = 3.0817580 * (x ^ 3) - 5.87338670 * (x ^ 2) + 3.75112997 * x - 0.37001483;
-else
-    y_mid = -0.9549476 * (x ^ 3) - 1.37418593 * (x ^ 2) + 2.09137015 * x - 0.16748867;
-    y_high = 3.0817580 * (x ^ 3) - 5.87338670 * (x ^ 2) + 3.75112997 * x - 0.37001483;
-    y = (1.0 - u) * y_mid + u * y_high;
-end
-end
-
-function rgb = local_xy_to_linear_srgb_white(x, y)
-y_safe = max(y, 1e-8);
-xyz = [x / y_safe, 1.0, (1.0 - x - y_safe) / y_safe]';
-m_xyz_to_srgb = [ ...
-    3.2406, -1.5372, -0.4986; ...
-   -0.9689,  1.8758,  0.0415; ...
-    0.0557, -0.2040,  1.0570];
-rgb = max(m_xyz_to_srgb * xyz, 1e-6)';
-end
-
-function a = local_atten_curve(y)
-if y <= 31
-    a = 0.55;
-elseif y <= 127
-    a = 0.55 + 0.45 * (double(y) - 31.0) / (127.0 - 31.0);
-elseif y <= 239
-    a = 1.00 + (0.35 - 1.00) * (double(y) - 127.0) / (239.0 - 127.0);
-else
-    a = 0.35;
+    error('coeff_frac_bits must be 8 or 10');
 end
 end
 
