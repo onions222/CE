@@ -1,0 +1,112 @@
+000|Normal|WPA 色温调整算法设计规范
+001|Normal|面向对象：算法工程师 / 数字 IC 设计工程师
+002|Normal|版本：v1.0
+003|Normal|日期：2026-03-04
+004|Normal|项目：wpa_python_port/claude_version_cct_rgb_gain_method
+005|Normal|
+006|Heading 1|1. 文档目的与范围
+007|Normal|本文档定义 White Point Adjustment (WPA) 算法的数学模型、定点实现、硬件资源预算与验证准则，作为算法和 DIC 设计协同交付的基线文档。
+008|Normal|适用范围：显示链路中的冷暖调节（WA_SEL 控制），运行时不使用 3x3 矩阵，仅使用 RGB 对角增益。
+009|Heading 1|2. 术语与符号
+010|Heading 1|3. 设计目标与约束
+011|Normal|目标：
+012|Normal|1) WA_SEL=64 对应 D65(6500K)；2) 冷暖端点覆盖 4500K~9300K；3) 运行时复杂度满足 DIC 实时预算；4) 亮度感知尽量稳定。
+013|Normal|约束：
+014|Normal|1) 运行时禁止 3x3 色彩适应矩阵；2) 采用 12-bin 亮度节点；3) 定点系数默认 UQ1.8，可选 UQ1.10。
+015|Heading 1|4. 算法原理与数学模型
+016|Heading 2|4.1 WA_SEL 到 CCT 映射
+017|Normal|Eq. (1)  wa <= 64:   T(wa) = 6500 - (64-wa)*(6500-4500)/64
+018|Normal|Eq. (2)  wa > 64:    T(wa) = 6500 + (wa-64)*(9300-6500)/63
+019|Normal|锚点：T(0)=4500K, T(64)=6500K, T(127)=9300K。
+020|Heading 2|4.2 CCT 到白点与基础增益
+021|Normal|离线阶段按标准近似公式将 CCT 映射到 CIE 1931 xy，再转换 XYZ，最后通过 XYZ->linear RGB 矩阵得到目标白点 RGB。
+022|Normal|Eq. (3)  G_base_float = RGB_target / RGB_neutral
+023|Normal|Eq. (4)  Y_norm = 0.2126*G_R + 0.7152*G_G + 0.0722*G_B
+024|Normal|Eq. (5)  G_base = clip(G_base_float / Y_norm, g_min, g_max)
+025|Normal|其中 g_min=0.5, g_max=1.8（可按面板修订）。
+026|Heading 2|4.3 三锚点压缩与运行时 base gain 插值
+027|Normal|常驻仅保存三个锚点：G_warm (wa=0), G_neutral (wa=64), G_cool (wa=127)。
+028|Normal|Eq. (6)  wa <= 64: G_base(wa)=G_warm + (wa/64)*(G_neutral-G_warm)
+029|Normal|Eq. (7)  wa > 64 : G_base(wa)=G_neutral + ((wa-64)/64)*(G_cool-G_neutral)
+030|Normal|说明：cool 端采用 /64（移位实现），最冷端将略弱于 /63 方案。
+031|Heading 2|4.4 亮度衰减模型与 12-bin 展开
+032|Normal|Eq. (8)  Y = (R + 2G + B)/4
+033|Normal|Eq. (9)  atten(y)= { 0.55, y<=31; 0.55+0.45*(y-31)/96, 31<y<=127; 1.00-0.35*(y-127)/112, 127<y<=239; 0.65, y>239 }
+034|Normal|Eq. (10) G_bin[i] = 1 + atten(y_i)*(G_base-1),  y_i in luma_nodes[12]
+035|Normal|运行时先按当前 WA_SEL 生成当前 12x3 缓存，再按像素 Y 在节点间线性插值得到 gain(Y)。
+036|Heading 2|4.5 定点量化与逐像素计算
+037|Normal|设系数量化小数位 F_c，像素内部小数位 F_p。
+038|Normal|Eq. (11) gain_fix = round(gain_float * 2^F_c)
+039|Normal|Eq. (12) pixel_fix = round(pixel_linear * 2^F_p)
+040|Normal|Eq. (13) out_fix = (pixel_fix * gain_fix + 2^(F_c-1)) >> F_c
+041|Normal|Eq. (14) out_u8 = round( engamma( clip(out_fix/2^F_p, 0, 1) ) * 255 )
+042|Heading 2|4.6 饱和度保护（可选）
+043|Normal|Eq. (15) s = |R-G| + |G-B| + |B-R|
+044|Normal|Eq. (16) w = clip((s1-s)/(s1-s0), 0, 1)
+045|Normal|Eq. (17) out = in + w*(adjusted-in)
+046|Heading 1|5. 实现流程
+047|Normal|离线（高精度）：WA_SEL->CCT->xy->XYZ->RGB_gain，生成参考 128x3。
+048|Normal|运行时（硬件主路径）：3锚点常驻 + atten LUT 常驻；WA 更新时生成当前 12x3；每像素仅做插值与定点乘移位。
+049|Heading 1|6. 硬件资源与位宽预算（详细）
+050|Heading 2|6.1 常驻存储资源
+051|Normal|运行时 scratch（WA 更新生成 12x3）：UQ1.8=41B, UQ1.10=50B。
+052|Heading 2|6.2 关键运行时变量位宽
+053|Heading 2|6.3 运算复杂度预算
+054|Normal|每像素（sat_en=False）：比较11，加13，减5，乘6，除1，移位7，clip1。
+055|Normal|每像素额外（sat_en=True）：abs+3，加+7，减+5，乘+3，除+1，移位+4。
+056|Normal|每次 WA 更新（非每像素）：wa_interp_mul/add/shift = 3/3/3；bin_expand_mul/add/shift = 36/36/36。
+057|Heading 1|7. 数值验证与可视验证结果
+058|Normal|基于当前代码（2026-03-04）自动验证结果：pytest 64 项全部通过。
+059|Normal|3锚点线性插值相对 128 点参考误差：
+060|Normal|Float vs Fixed（LSB）在 WA={0,32,64,96,127} 下：MeanAbs < 0.33, P99 <= 2, Max <= 4, 且 WA=64 为严格 identity。
+061|Normal|结论：在低资源约束下，3锚点 + /64 cool 插值的误差处于可接受区间。
+062|Heading 1|8. 测试集建议（分层）
+063|Normal|推荐三档：smoke/core/full。
+064|Normal|smoke：最小快测（含灰阶、色卡、高光、UI 文本、混光代表样本）。
+065|Normal|core：日常回归（13 合成 + 15 Kodak + JPEG 退化梯度）。
+066|Normal|full：发布门禁（13 合成 + 全 24 Kodak + JPEG 退化梯度）。
+067|Normal|构建命令：python scripts/build_test_set.py --profile smoke|core|full
+068|Heading 1|9. 交付与联调检查单
+069|Normal|- WA_SEL=64 输出与输入逐像素一致（<=1 LSB）
+070|Normal|- 冷暖方向正确：暖端 R↑B↓，冷端 R↓B↑
+071|Normal|- 灰阶与天空渐变无明显 banding 新增
+072|Normal|- 高亮和暗部无异常偏色或剪切突变
+073|Normal|- hw_stats 输出与文档资源表一致
+074|Normal|- 验证报告输出 PASS
+075|Heading 1|10. 参考文献与标准
+076|Normal|[1] IEC 61966-2-1:1999, Multimedia systems and equipment - Colour measurement and management - Part 2-1: Colour management - Default RGB colour space - sRGB.
+077|Normal|[2] CIE 15:2018, Colorimetry, 4th Edition.
+078|Normal|[3] Wyszecki, G. and Stiles, W. S., Color Science: Concepts and Methods, Quantitative Data and Formulae, 2nd ed., Wiley, 2000.
+079|Normal|[4] Hernandez-Andres, J., Lee, R. L., and Romero, J., Calculating correlated color temperatures across the entire gamut of daylight and skylight chromaticities, Applied Optics, 38(27), 5703-5709, 1999.
+080|Normal|[5] ITU-R BT.709-6, Parameter values for the HDTV standards for production and international programme exchange.
+081|Normal|注：若后续采用专利约束路径（例如特定 CCT-to-gain 映射或面板专有补偿），应在版本记录中追加专利号与权利要求映射。
+
+===TABLES===
+-- table 0 --
+00|符号 | 定义 | 范围/备注
+01|WA_SEL | 冷暖控制码 | 0..127, 64 为中性
+02|T | 目标色温 (CCT) | K
+03|G_base=[G_R,G_G,G_B] | 当前 WA 的基础增益向量 | 线性域
+04|Y | 亮度代理 | (R+2G+B)/4
+05|atten(Y) | 亮度衰减权重 | 三段分段函数
+06|G_bin[i] | 第 i 个亮度节点增益 | i=0..11
+-- table 1 --
+00|配置 | 系数位宽 | WA锚点LUT | atten LUT | luma_nodes | 总静态
+01|UQ1.8 | 9 bit | 11 B | 14 B | 12 B | 36 B
+02|UQ1.10 | 11 bit | 13 B | 17 B | 12 B | 41 B
+-- table 2 --
+00|变量 | UQ1.8 | UQ1.10
+01|wa_sel | 7 | 7
+02|luma_u8 | 8 | 8
+03|idx_lo_hi | 4 | 4
+04|t_interp | 11 | 11
+05|pixel_fix_ch | 11 | 11
+06|gain_fix_ch | 9 | 11
+07|mul_acc_ch | 20 | 22
+08|adjusted_fix_ch | 11 | 11
+09|sat_weight | 11 | 11
+10|sat_proxy_s | 10 | 10
+-- table 3 --
+00|coeff_frac_bits | MAE | P99 Abs | Max Abs
+01|8 | 0.010408 | 0.028085 | 0.028228
+02|10 | 0.010742 | 0.027249 | 0.027910

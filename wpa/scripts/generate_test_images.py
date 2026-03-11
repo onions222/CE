@@ -361,6 +361,35 @@ def gen_bin_boundary_triplet_chart(patch_size: int = 36, gap: int = 10) -> np.nd
     return img
 
 
+def gen_near_node_ramp_chart(patch_size: int = 20, span: int = 8) -> np.ndarray:
+    """Local grey ramps centered on each luma node to expose discontinuities."""
+    nodes = [15, 31, 47, 63, 95, 127, 159, 191, 223, 239, 247, 255]
+    samples = list(range(-span, span + 1))
+    step_count = len(samples)
+    gap = patch_size
+    width = len(nodes) * step_count * patch_size + (len(nodes) - 1) * gap
+    height = len(nodes) * patch_size
+    img = np.full((height, width, 3), 18, dtype=np.uint8)
+
+    for row, node in enumerate(nodes):
+        y0 = row * patch_size
+        x = 0
+        for group_idx, group_node in enumerate(nodes):
+            if group_idx == row:
+                for offset in samples:
+                    value = int(np.clip(group_node + offset, 0, 255))
+                    img[y0:y0 + patch_size, x:x + patch_size] = value
+                    x += patch_size
+            else:
+                neutral = int(np.clip(group_node, 0, 255))
+                img[y0:y0 + patch_size, x:x + step_count * patch_size] = neutral
+                x += step_count * patch_size
+            if group_idx != len(nodes) - 1:
+                img[y0:y0 + patch_size, x:x + gap] = 12
+                x += gap
+    return img
+
+
 def gen_iso_gray_18_70_pair(h: int = 128, w: int = 512) -> np.ndarray:
     """Paired low/mid and high neutral blocks for luminance-dependent drift checks."""
     img = np.full((h, w, 3), 90, dtype=np.uint8)
@@ -485,6 +514,7 @@ GENERATORS = {
     "rgb_cmy_color_bars":    gen_rgb_cmy_color_bars,
     "two_axis_neutral_gradient": gen_two_axis_neutral_gradient,
     "bin_boundary_triplet_chart": gen_bin_boundary_triplet_chart,
+    "near_node_ramp_chart": gen_near_node_ramp_chart,
     "iso_gray_18_70_pair":   gen_iso_gray_18_70_pair,
     "midtone_neutral_texture": gen_midtone_neutral_texture,
     "saturation_threshold_ladder": gen_saturation_threshold_ladder,

@@ -24,6 +24,7 @@ def test_core_visual_profile_includes_new_failure_mode_driven_items() -> None:
     spec = get_profile_spec("core_visual")
 
     assert "bin_boundary_triplet_chart" in spec["synthetic"]
+    assert "near_node_ramp_chart" in spec["synthetic"]
     assert "saturation_threshold_ladder" in spec["synthetic"]
 
 

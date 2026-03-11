@@ -1,16 +1,17 @@
 # WPA Test Set Manifest: core_visual
 
-- synthetic: 21
+- synthetic: 22
 - real_kodak: 0
 - real_sanity: 0
 - derived_jpeg: 0
-- items: 21
+- items: 22
 
 ## Items
 - `01_grey_ramp` (neutral_stability_core, P0) -> `synthetic/01_grey_ramp.png`
 - `09_grey_steps` (neutral_stability_core, P0) -> `synthetic/09_grey_steps.png`
 - `10_luma_node_chart` (neutral_stability_core, P0) -> `synthetic/10_luma_node_chart.png`
 - `bin_boundary_triplet_chart` (neutral_stability_core, P0) -> `synthetic/bin_boundary_triplet_chart.png`
+- `near_node_ramp_chart` (neutral_stability_core, P0) -> `synthetic/near_node_ramp_chart.png`
 - `11_ui_text_contrast` (neutral_stability_core, P0) -> `synthetic/11_ui_text_contrast.png`
 - `12_specular_clip_chart` (neutral_stability_core, P0) -> `synthetic/12_specular_clip_chart.png`
 - `near_black_steps` (neutral_stability_core, P0) -> `synthetic/near_black_steps.png`
