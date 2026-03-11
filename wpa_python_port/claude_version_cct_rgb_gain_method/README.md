@@ -204,6 +204,32 @@ manifest 会输出 `dataset_role`、`inspection_priority`、`failure_modes`、`r
 
 ---
 
+## MATLAB 定点版
+
+仓库现在包含一个与 `wpa_fixed` 对齐的 MATLAB 版本，代码位于 [matlab/README.md](matlab/README.md) 旁的 `matlab/` 目录。
+
+典型流程：
+
+```bash
+python scripts/export_matlab_wpa_fixed_golden.py
+```
+
+然后在 MATLAB 中：
+
+```matlab
+addpath('matlab');
+summary = validate_wpa_fixed_against_python('matlab/golden_cases');
+```
+
+单张图片入口：
+
+```matlab
+addpath('matlab');
+run_wpa_fixed_image('input.png', 'output.png', 'wa_sel', 0, 'coeff_frac_bits', 8);
+```
+
+---
+
 ## 算法文档
 
 详细的数学公式和处理步骤见 [ALGORITHM.md](ALGORITHM.md)。
