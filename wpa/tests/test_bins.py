@@ -38,8 +38,8 @@ class TestAttenCurve:
         assert _atten_curve(127) == pytest.approx(1.0)
 
     def test_bright(self):
-        assert _atten_curve(239) == pytest.approx(0.65)
-        assert _atten_curve(255) == pytest.approx(0.65)
+        assert _atten_curve(239) == pytest.approx(0.35)
+        assert _atten_curve(255) == pytest.approx(0.35)
 
     def test_monotone_rise(self):
         """Atten should rise from y=31 to y=127."""
