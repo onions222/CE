@@ -7,7 +7,7 @@
 - 第 4 章数学原理描述不够完整，缺少从 CCT 到白点、再到 RGB 增益的完整数学链路解释
 - 第 5 章定点实现描述过于概括，缺少 `WA_SEL` 更新阶段的逐步定点推导
 - 第 6 章硬件资源描述未按“`WA_SEL` 更新”和“`WA_SEL` 固定后逐像素计算”分拆
-- 与当前 [ALGORITHM.md](/Users/onion/Desktop/code/CE/wpa_python_port/claude_version_cct_rgb_gain_method/ALGORITHM.md) 的详细程度不一致
+- 与当前 [ALGORITHM.md](/Users/onion/Desktop/code/CE/wpa/ALGORITHM.md) 的详细程度不一致
 
 **Decision**
 

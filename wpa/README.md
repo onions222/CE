@@ -3,6 +3,11 @@
 移动显示端色温调节 Python 实现。通过 per-channel RGB gain 实现暖色/冷色调节，
 支持 12-bin 亮度分段增益与 sRGB gamma 处理。
 
+当前仓库规则：
+
+- 本目录是唯一活跃的 WPA 开发目录。
+- 历史 MATLAB/Python 版本与对比脚本都在 `../archive/` 下，只读留档。
+
 ---
 
 ## Quick Start
@@ -57,7 +62,7 @@ pip install numpy Pillow
 
 ```bash
 # 从项目目录直接使用
-cd wpa_python_port/claude_version
+cd wpa
 python -m wpa.cli --in input.jpg --out output.jpg --wa-sel 20
 
 # 或安装到环境

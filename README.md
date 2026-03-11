@@ -6,12 +6,16 @@
 
 ```
 CE/
-├── wpa/                  # WPA MATLAB 原版（YCoCg + LMS，无 banding）
-├── wpa_python_port/      # WPA Python 移植（从 MATLAB 直接翻译）
-├── wpa_simple_version/   # WPA 精简重构版（含 CLI、pytest、文档）
-├── fca/                  # FCA 色相偏移（浮点 & 定点，Python + MATLAB）
-└── compare/              # WPA 新旧版本对比脚本
+├── fca/                  # FCA 活跃目录
+├── wpa/                  # WPA 唯一活跃目录
+└── archive/              # 历史版本与对比脚本，只读留档
 ```
+
+## 仓库规则
+
+- `wpa/` 是唯一活跃的 WPA 开发目录。
+- `archive/wpa/*` 与 `archive/compare/` 只用于追溯和参考，不再承接新开发。
+- 以后新增算法时，直接与 `wpa/`、`fca/` 并列放在仓库顶层。
 
 ## 模块概览
 
@@ -31,15 +35,15 @@ CE/
 | `diag_rgb` | RGB 对角增益 + 亮度分箱，速度快 |
 | `kelvin_ycocg` | 基于 Kelvin 白点变化 + YCoCg 色彩空间变换 |
 
-**快速使用（`wpa_simple_version`）：**
+**快速使用（活跃 `wpa/` 目录）：**
 
 ```bash
-cd wpa_simple_version
+cd wpa
 python -m pip install -e ".[cli,test]"
 python -m wpa.cli --in sky.jpg --out out.png --wa-sel 127
 ```
 
-详细参数请参阅 [`wpa_simple_version/README.md`](wpa_simple_version/README.md)。
+详细参数请参阅 [`wpa/README.md`](wpa/README.md)。
 
 ---
 

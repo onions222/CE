@@ -73,6 +73,7 @@ git commit -m "chore: add archive layout for historical algorithms"
 **Files:**
 - Move: `compare/` -> `archive/compare/`
 - Move: `wpa/` -> `archive/wpa/matlab-original/`
+- Move: `wpa_python_port/` -> `archive/wpa/python-port-original/`
 - Move: `wpa_python_port/claude_version/` -> `archive/wpa/python-port-legacy/`
 - Move: `wpa_simple_version/` -> `archive/wpa/python-simple-legacy/`
 
@@ -86,22 +87,27 @@ Expected: `git status --short` shows a rename for `compare`.
 Run: `git mv wpa archive/wpa/matlab-original`
 Expected: `git status --short` shows the MATLAB source moved under `archive/wpa/`.
 
-- [ ] **Step 3: Move the legacy Python port**
+- [ ] **Step 3: Move the remaining original Python port container**
+
+Run: `git mv wpa_python_port archive/wpa/python-port-original`
+Expected: the old top-level container disappears and the archive path appears in status.
+
+- [ ] **Step 4: Move the legacy Python port**
 
 Run: `git mv wpa_python_port/claude_version archive/wpa/python-port-legacy`
 Expected: the old path disappears and the archive path appears in status.
 
-- [ ] **Step 4: Move the simplified WPA version**
+- [ ] **Step 5: Move the simplified WPA version**
 
 Run: `git mv wpa_simple_version archive/wpa/python-simple-legacy`
 Expected: the old path disappears and the archive path appears in status.
 
-- [ ] **Step 5: Verify the archive content**
+- [ ] **Step 6: Verify the archive content**
 
 Run: `find archive -maxdepth 3 -type d | sort`
-Expected: includes `archive/compare`, `archive/wpa/matlab-original`, `archive/wpa/python-port-legacy`, and `archive/wpa/python-simple-legacy`.
+Expected: includes `archive/compare`, `archive/wpa/matlab-original`, `archive/wpa/python-port-original`, `archive/wpa/python-port-legacy`, and `archive/wpa/python-simple-legacy`.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add archive

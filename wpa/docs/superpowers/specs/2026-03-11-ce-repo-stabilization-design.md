@@ -33,6 +33,7 @@ CE/
 ├── archive/
 │   ├── wpa/
 │   │   ├── matlab-original/
+│   │   ├── python-port-original/
 │   │   ├── python-port-legacy/
 │   │   └── python-simple-legacy/
 │   └── compare/
@@ -55,6 +56,9 @@ This becomes the only place where WPA feature development is allowed.
 - Current MATLAB original:
   `wpa/`
   -> `archive/wpa/matlab-original/`
+- Current original Python port container:
+  `wpa_python_port/`
+  -> `archive/wpa/python-port-original/`
 - Current Python legacy port:
   `wpa_python_port/claude_version/`
   -> `archive/wpa/python-port-legacy/`
@@ -98,10 +102,11 @@ Branch deletion happens after the filesystem layout is stabilized and verified.
 3. Move `compare/` into `archive/compare/`.
 4. Move the current top-level MATLAB `wpa/` into `archive/wpa/matlab-original/`.
 5. Move obsolete Python WPA directories into `archive/wpa/` with descriptive names.
-6. Promote `wpa_python_port/claude_version_cct_rgb_gain_method` to the new top-level `wpa/`.
-7. Update documentation, scripts, path references, and any helper commands that still point to the old deep path.
-8. Add explicit repository rules to the root README and WPA README.
-9. Prune stale branches using the approved keep-list.
+6. Move the remaining `wpa_python_port/` legacy container into `archive/wpa/python-port-original/`.
+7. Promote `wpa_python_port/claude_version_cct_rgb_gain_method` to the new top-level `wpa/`.
+8. Update documentation, scripts, path references, and any helper commands that still point to the old deep path.
+9. Add explicit repository rules to the root README and WPA README.
+10. Prune stale branches using the approved keep-list.
 
 ## Documentation Rules
 

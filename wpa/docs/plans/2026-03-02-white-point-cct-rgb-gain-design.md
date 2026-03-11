@@ -298,8 +298,8 @@ python -m wpa_fixed.hw_stats --frac-bits 10 --coeff-frac-bits 8 --sat-en 1
 为验证“3 锚点（warm/neutral/cool）+ 分段线性插值”是否可接受，使用 128 档浮点基准 `build_cct_gain_lut()` 做对照，比较 `WA_SEL=0..127` 的 base gain 误差。
 
 验证脚本与结果已独立放置到：
-- [evaluate_anchor_interp.py](/Users/onion/Desktop/code/CE/wpa_python_port/claude_version_cct_rgb_gain_method/validation/linear_interp_basis/evaluate_anchor_interp.py)
-- [anchor_interp_results.md](/Users/onion/Desktop/code/CE/wpa_python_port/claude_version_cct_rgb_gain_method/validation/linear_interp_basis/anchor_interp_results.md)
+- [evaluate_anchor_interp.py](/Users/onion/Desktop/code/CE/wpa/validation/linear_interp_basis/evaluate_anchor_interp.py)
+- [anchor_interp_results.md](/Users/onion/Desktop/code/CE/wpa/validation/linear_interp_basis/anchor_interp_results.md)
 
 关键结果：
 - `coeff_frac_bits=8`：`MAE=0.010408`，`MaxAbs=0.028228`
