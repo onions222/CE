@@ -33,6 +33,9 @@ cfg = struct( ...
     'luma_nodes', [15 31 47 63 95 127 159 191 223 239 247 255], ...
     'bin_interp', true, ...
     'luma_domain', 'gamma', ...
+    'low_luma_gate_en', true, ...
+    'low_luma_bypass_code', [], ...
+    'low_luma_blend_end_code', [], ...
     'sat_en', false, ...
     'sat_s0', 100, ...
     'sat_s1', 500, ...
@@ -106,6 +109,22 @@ if isempty(cfg.cool_highlight_blue_caps_fixed)
     cfg.cool_highlight_blue_caps_fixed = local_build_cool_highlight_blue_caps_fixed(cfg);
 else
     cfg.cool_highlight_blue_caps_fixed = round(cfg.cool_highlight_blue_caps_fixed);
+end
+
+if isempty(cfg.low_luma_bypass_code)
+    cfg.low_luma_bypass_code = local_srgb_u8_to_linear_code(31, cfg.frac_bits);
+else
+    cfg.low_luma_bypass_code = round(cfg.low_luma_bypass_code);
+end
+
+if isempty(cfg.low_luma_blend_end_code)
+    cfg.low_luma_blend_end_code = local_srgb_u8_to_linear_code(63, cfg.frac_bits);
+else
+    cfg.low_luma_blend_end_code = round(cfg.low_luma_blend_end_code);
+end
+
+if cfg.low_luma_blend_end_code <= cfg.low_luma_bypass_code
+    error('low_luma_blend_end_code must be greater than low_luma_bypass_code');
 end
 end
 
@@ -190,4 +209,15 @@ function caps = local_build_cool_highlight_blue_caps_fixed(cfg)
 one = cfg.COEFF_ONE;
 caps = repmat(one, numel(cfg.luma_nodes), 1);
 caps(end-3:end) = round([1.15; 1.12; 1.08; 1.06] * one);
+end
+
+function code = local_srgb_u8_to_linear_code(v, frac_bits)
+x = min(max(double(v), 0), 255) / 255.0;
+if x <= 0.04045
+    linear = x / 12.92;
+else
+    linear = ((x + 0.055) / 1.055) ^ 2.4;
+end
+code = round(linear * (2 ^ frac_bits));
+code = min(max(code, 0), 2 ^ frac_bits);
 end

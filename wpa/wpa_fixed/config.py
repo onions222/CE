@@ -20,6 +20,17 @@ from wpa.config import (
 # ---------------------------------------------------------------------------
 LUMA_NODES_12: list[int] = [15, 31, 47, 63, 95, 127, 159, 191, 223, 239, 247, 255]
 
+
+def _srgb_u8_to_linear_code(u8_value: int, frac_bits: int) -> int:
+    x = float(np.clip(u8_value, 0, 255)) / 255.0
+    if x <= 0.04045:
+        linear = x / 12.92
+    else:
+        linear = ((x + 0.055) / 1.055) ** 2.4
+    one = 1 << frac_bits
+    return int(np.clip(round(linear * one), 0, one))
+
+
 def _atten_curve(y: float) -> float:
     """3-segment piecewise-linear attenuation (same as float version).
 
@@ -98,6 +109,9 @@ class FixedWPAConfig:
     luma_nodes: list[int] = field(default_factory=lambda: list(LUMA_NODES_12))
     bin_interp: bool = True
     luma_domain: str = "gamma"
+    low_luma_gate_en: bool = True
+    low_luma_bypass_code: Optional[int] = None
+    low_luma_blend_end_code: Optional[int] = None
 
     # --- saturation protection -------------------------------------------
     sat_en: bool = False
@@ -144,6 +158,14 @@ class FixedWPAConfig:
                 "atten_q_lut_fixed shape must be (len(luma_nodes),), "
                 f"got {self.atten_q_lut_fixed.shape}"
             )
+        if self.low_luma_bypass_code is None:
+            self.low_luma_bypass_code = _srgb_u8_to_linear_code(31, self.frac_bits)
+        if self.low_luma_blend_end_code is None:
+            self.low_luma_blend_end_code = _srgb_u8_to_linear_code(63, self.frac_bits)
+        self.low_luma_bypass_code = int(self.low_luma_bypass_code)
+        self.low_luma_blend_end_code = int(self.low_luma_blend_end_code)
+        if self.low_luma_blend_end_code <= self.low_luma_bypass_code:
+            raise ValueError("low_luma_blend_end_code must be greater than low_luma_bypass_code")
 
     @property
     def ONE(self) -> int:

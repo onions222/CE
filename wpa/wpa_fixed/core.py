@@ -77,14 +77,15 @@ def wpa_fixed_process(
     # ------------------------------------------------------------------
     # Step 3: Luma proxy (uint8 integer arithmetic)
     # ------------------------------------------------------------------
+    r_fix = pixel_fix[..., 0]
+    g_fix = pixel_fix[..., 1]
+    b_fix = pixel_fix[..., 2]
+    gate_luma_fix = (r_fix + 2 * g_fix + b_fix) >> 2
     if cfg.luma_domain == "gamma":
-        luma_u8 = compute_luma_proxy_u8(img)          # (H, W) uint8
+        luma_u8 = compute_luma_proxy_u8(img)         # (H, W) uint8
     else:
         # Linear domain luma: compute from fixed-point, scale to [0, 255]
-        r_fix = pixel_fix[..., 0]
-        g_fix = pixel_fix[..., 1]
-        b_fix = pixel_fix[..., 2]
-        luma_fix = (r_fix + 2 * g_fix + b_fix) >> 2   # [0, ONE]
+        luma_fix = gate_luma_fix                      # [0, ONE]
         # Scale to [0, 255]: luma_u8 = (luma_fix * 255 + HALF) >> frac_bits
         luma_u8 = np.clip(
             (luma_fix * 255 + HALF) >> frac_bits, 0, 255
@@ -130,10 +131,32 @@ def wpa_fixed_process(
     # ------------------------------------------------------------------
     adjusted = np.clip(adjusted, 0, ONE)
 
+    if not cfg.low_luma_gate_en:
+        gated = adjusted
+    else:
+        bypass_code = int(cfg.low_luma_bypass_code)
+        blend_end_code = int(cfg.low_luma_blend_end_code)
+        gated = adjusted.copy()
+        bypass_mask = gate_luma_fix <= bypass_code
+        gated[bypass_mask] = pixel_fix[bypass_mask]
+
+        blend_mask = (gate_luma_fix > bypass_code) & (gate_luma_fix < blend_end_code)
+        if np.any(blend_mask):
+            numer = gate_luma_fix[blend_mask].astype(np.int32) - bypass_code
+            denom = blend_end_code - bypass_code
+            numer_3d = numer[:, np.newaxis]
+            input_part = pixel_fix[blend_mask].astype(np.int32) * (denom - numer_3d)
+            output_part = adjusted[blend_mask].astype(np.int32) * numer_3d
+            gated[blend_mask] = np.clip(
+                (input_part + output_part + (denom // 2)) // denom,
+                0,
+                ONE,
+            ).astype(np.int32)
+
     # ------------------------------------------------------------------
     # Step 8: Convert fixed-point → float linear, then engamma (float)
     # ------------------------------------------------------------------
-    linear_out = adjusted.astype(np.float32) / float(ONE)  # [0, 1]
+    linear_out = gated.astype(np.float32) / float(ONE)  # [0, 1]
     encoded = engamma(linear_out, cfg.gamma_mode, power=cfg.gamma_power)
 
     # ------------------------------------------------------------------

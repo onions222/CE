@@ -136,3 +136,28 @@ def test_fixed_warm_near_white_tail_returns_to_lower_chroma_warm_white() -> None
     assert spans[0] > spans[1] > spans[2]
     assert spans[-1] <= 18
     assert int(out[-1, 1]) - int(out[-1, 2]) <= 10
+
+
+def test_low_luma_gate_bypasses_dark_blue_shoulder_pixel_in_linear_domain() -> None:
+    rgb = np.array([[[16, 18, 22]]], dtype=np.uint8)
+
+    out = wpa_fixed_process(rgb, FixedWPAConfig(wa_sel=0, coeff_frac_bits=8, frac_bits=8))
+
+    np.testing.assert_array_equal(out[0, 0], np.array([13, 22, 22], dtype=np.uint8))
+
+
+def test_low_luma_gate_blends_smoothly_between_31_and_63() -> None:
+    rgb = np.array([[[48, 48, 48]]], dtype=np.uint8)
+    cfg = FixedWPAConfig(wa_sel=0, coeff_frac_bits=8, frac_bits=8)
+
+    out = wpa_fixed_process(rgb, cfg)
+
+    np.testing.assert_array_equal(out[0, 0], np.array([56, 49, 46], dtype=np.uint8))
+
+
+def test_low_luma_gate_preserves_existing_behavior_above_transition_window() -> None:
+    rgb = np.array([[[80, 80, 80]]], dtype=np.uint8)
+
+    out = wpa_fixed_process(rgb, FixedWPAConfig(wa_sel=0, coeff_frac_bits=8, frac_bits=8))
+
+    np.testing.assert_array_equal(out[0, 0], np.array([99, 77, 64], dtype=np.uint8))
