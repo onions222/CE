@@ -33,7 +33,6 @@ linear_f = local_degamma(img, cfg.gamma_mode, cfg.gamma_power);
 % pixel_code 是像素内部 raw code。
 % 默认 frac_bits = 8，因此 1.0 <-> 256，位宽按 9 bit 理解。
 pixel_code = min(max(round(double(linear_f) * cfg.ONE), 0), cfg.ONE);
-gate_luma_code = floor((pixel_code(:, :, 1) + 2 .* pixel_code(:, :, 2) + pixel_code(:, :, 3)) / 4);
 
 if strcmp(char(cfg.luma_domain), 'gamma')
     % gamma 域亮度代理直接基于输入 8bit RGB 计算。
@@ -43,7 +42,7 @@ else
     g_code = pixel_code(:, :, 2);
     b_code = pixel_code(:, :, 3);
     % luma_code 仍在 pixel raw code 域，位宽近似为 cfg.pixel_bits。
-    luma_code = gate_luma_code;
+    luma_code = floor((r_code + 2 .* g_code + b_code) / 4);
     luma_u8 = min(floor((luma_code .* 255 + cfg.HALF) / (2 ^ cfg.frac_bits)), 255);
 end
 
@@ -64,36 +63,7 @@ if cfg.sat_en
 end
 
 adjusted_code = min(max(adjusted_code, 0), cfg.ONE);
-gated_code = adjusted_code;
-if cfg.low_luma_gate_en
-    bypass_code = round(cfg.low_luma_bypass_code);
-    blend_end_code = round(cfg.low_luma_blend_end_code);
-    bypass_mask = gate_luma_code <= bypass_code;
-    if any(bypass_mask(:))
-        for c = 1:3
-            plane = gated_code(:, :, c);
-            src = pixel_code(:, :, c);
-            plane(bypass_mask) = src(bypass_mask);
-            gated_code(:, :, c) = plane;
-        end
-    end
-
-    blend_mask = gate_luma_code > bypass_code & gate_luma_code < blend_end_code;
-    if any(blend_mask(:))
-        numer = double(gate_luma_code(blend_mask)) - double(bypass_code);
-        denom = double(blend_end_code - bypass_code);
-        for c = 1:3
-            src = double(pixel_code(:, :, c));
-            dst = double(adjusted_code(:, :, c));
-            blended = floor((src(blend_mask) .* (denom - numer) + dst(blend_mask) .* numer + floor(denom / 2)) ./ denom);
-            plane = gated_code(:, :, c);
-            plane(blend_mask) = min(max(blended, 0), cfg.ONE);
-            gated_code(:, :, c) = plane;
-        end
-    end
-end
-
-linear_out = single(gated_code ./ cfg.ONE);
+linear_out = single(adjusted_code ./ cfg.ONE);
 encoded = local_engamma(linear_out, cfg.gamma_mode, cfg.gamma_power);
 out = uint8(min(max(round(double(encoded) * 255.0), 0), 255));
 end

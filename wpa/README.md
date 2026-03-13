@@ -233,39 +233,6 @@ addpath('matlab');
 run_wpa_fixed_image('input.png', 'output.png', 'wa_sel', 0, 'coeff_frac_bits', 8);
 ```
 
-### Python fixed / MATLAB hw_runtime 的 low-luma gate
-
-`wpa_fixed` 与 `matlab/hw_runtime` 现在都包含同一套 low-luma bypass/blend 逻辑，
-用于抑制 `Q0.8` 下低亮 shoulder 区域的 colored ring。
-
-问题背景：
-
-- 当输入先进入线性域，再量化到较低 bit-depth 时，某些低亮偏蓝 shoulder 像素会落到极小的 raw code
-- 例如 `(16, 18, 22)` 在 `frac_bits=8` 下会量化成近似 `[1, 2, 2]`
-- warm gain 作用后，容易进一步落到近似 `[1, 2, 1]`
-- 再 `engamma` 后会表现成明显的 green/cyan ring
-
-当前解决方式不是在最终显示域修补，而是在线性域 raw code 上做 gate：
-
-- `gate_luma_code = floor((R_code + 2*G_code + B_code) / 4)`
-- `gate_luma_code <= bypass_code`
-  - 直接使用原始 `pixel_code`
-- `bypass_code < gate_luma_code < blend_end_code`
-  - 在线性域对 `pixel_code` 和 `adjusted_code` 做整数 blend
-- `gate_luma_code >= blend_end_code`
-  - 维持原始 `adjusted_code`
-
-默认门限会根据 `frac_bits` 自动从视觉参考值 `31/63` 映射到线性域 code：
-
-- `frac_bits=8`
-  - `bypass_code=4`
-  - `blend_end_code=13`
-- `frac_bits=10`
-  - `bypass_code=14`
-  - `blend_end_code=51`
-
-这套 gate 目前在 Python fixed 与 MATLAB `hw_runtime` 上已经对齐。
-
 ---
 
 ## 算法文档
