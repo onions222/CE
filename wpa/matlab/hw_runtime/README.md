@@ -86,9 +86,60 @@ run_hw_fixed_image('input.png', 'output.png', 'wa_sel', 0);
 - 修改顶部 `input_dir`、`output_dir`、`wa_sel`
 - 点击 MATLAB Run
 
+## Visual Gates
+
+`hw_runtime` 的正式测试目标是看算法效果，不是看和 Python 的逐像素数值一致。
+推荐采用“人工主判 + 自动辅助”的三套 gate：
+
+- `smoke_hw_visual`
+  - 本地快速回归，只跑最敏感的中性 / 节点 / 暗部 / 高亮图
+- `core_hw_visual`
+  - 日常完整 synthetic 评估，覆盖 neutral / UI / highlight / saturation / skin / mixed-light
+- `release_hw_visual`
+  - `core_hw_visual` + 真实场景 sanity
+
+常用 `WA_SEL` 检查档位：
+
+- `0`
+- `64`
+- `127`
+
+如果需要补看中间档位，再增加 `32` 和 `96`。
+
+## Review Workflow
+
+推荐工作流：
+
+1. 在 MATLAB 中用 `run_hw_fixed_folder.m` 批量生成 `wa=0/64/127` 输出
+2. 用 Python 脚本生成 comparison panels 和 review 模板
+3. 人工填写 `review_sheet.csv`
+4. 只有在人工判定 `Fail` 时，才运行 `validate_hw_fixed_against_python.m` 做定位
+
+生成 review pack：
+
+```bash
+python scripts/generate_matlab_hw_review_pack.py \
+  --profile smoke_hw_visual \
+  --input-dir test_images/synthetic \
+  --result-dir outputs/matlab_hw_runtime_smoke \
+  --output-dir outputs/matlab_hw_runtime_smoke_review
+```
+
+输出内容：
+
+- `comparison_panels/`
+- `review_sheet.csv`
+- `summary.md`
+
+配套人工检查说明见：
+
+- `validation/matlab_hw_runtime_review_checklist.md`
+
 对齐验证：
 
 ```matlab
 addpath('matlab/hw_runtime');
 summary = validate_hw_fixed_against_python('matlab/golden_cases');
 ```
+
+这里的 `validate_hw_fixed_against_python` 只作为调试工具，不作为正式放行 gate。
