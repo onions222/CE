@@ -29,3 +29,6 @@ ENV/
 
 # Temporary scripts
 debug_analysis.py
+
+# Local git worktrees
+.worktrees/
